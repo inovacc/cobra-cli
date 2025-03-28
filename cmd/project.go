@@ -5,8 +5,8 @@ import (
 	"os"
 	"text/template"
 
+	"github.com/inovacc/cobra-cli/tpl"
 	"github.com/spf13/cobra"
-	"github.com/spf13/cobra-cli/tpl"
 )
 
 // Project contains name, license and paths to projects.
