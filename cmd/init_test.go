@@ -16,23 +16,12 @@ func getProject() *Project {
 		Legal:        getLicense(),
 		Copyright:    copyrightLine(),
 		AppName:      "cmd",
-		PkgName:      "github.com/inovacc/cobra-cli/cmd/cmd",
+		PkgName:      "github.com/inovacc/cobra-cli/cmd",
 		Viper:        true,
 	}
 }
 
 func TestGoldenInitCmd(t *testing.T) {
-
-	dir, err := os.MkdirTemp("", "cobra-init")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func(path string) {
-		if err := os.RemoveAll(path); err != nil {
-			t.Fatalf("could not remove path %s: %v", path, err)
-		}
-	}(dir)
-
 	tests := []struct {
 		name      string
 		args      []string
@@ -42,7 +31,7 @@ func TestGoldenInitCmd(t *testing.T) {
 		{
 			name:      "successfully creates a project based on module",
 			args:      []string{"testproject"},
-			pkgName:   "github.com/spf13/testproject",
+			pkgName:   "github.com/inovacc/testproject",
 			expectErr: false,
 		},
 	}
