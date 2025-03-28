@@ -84,8 +84,7 @@ func copyrightLine() string {
 	if year == "" {
 		year = time.Now().Format("2006")
 	}
-
-	return "Copyright © " + year + " " + author
+	return fmt.Sprintf("Copyright © %s %s", year, author)
 }
 
 // findLicense looks for License object of built-in licenses.
@@ -94,7 +93,7 @@ func copyrightLine() string {
 func findLicense(name string) License {
 	found := matchLicense(name)
 	if found == "" {
-		cobra.CheckErr(fmt.Errorf("unknown license: " + name))
+		cobra.CheckErr(fmt.Errorf("unknown license: %v", name))
 	}
 	return Licenses[found]
 }
@@ -115,6 +114,5 @@ func matchLicense(name string) string {
 			}
 		}
 	}
-
 	return ""
 }

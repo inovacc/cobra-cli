@@ -16,7 +16,11 @@ func TestGoldenAddCmd(t *testing.T) {
 		CmdParent: parentName,
 		Project:   getProject(),
 	}
-	defer os.RemoveAll(command.AbsolutePath)
+	defer func(path string) {
+		if err := os.RemoveAll(path); err != nil {
+			t.Fatalf("could not remove path %s: %v", path, err)
+		}
+	}(command.AbsolutePath)
 
 	assertNoErr(t, command.Project.Create())
 	assertNoErr(t, command.Create())

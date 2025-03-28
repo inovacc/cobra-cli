@@ -30,7 +30,7 @@ func init() {
 	goPaths := filepath.SplitList(envGoPath)
 	if len(goPaths) == 0 {
 		// Adapted from https://github.com/Masterminds/glide/pull/798/files.
-		// As of Go 1.8 the GOPATH is no longer required to be set. Instead there
+		// As of Go 1.8 the GOPATH is no longer required to be set. Instead, there
 		// is a default value. If there is no GOPATH check for the default value.
 		// Note, checking the GOPATH first to avoid invoking the go toolchain if
 		// possible.

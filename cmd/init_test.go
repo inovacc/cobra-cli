@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -24,11 +23,15 @@ func getProject() *Project {
 
 func TestGoldenInitCmd(t *testing.T) {
 
-	dir, err := ioutil.TempDir("", "cobra-init")
+	dir, err := os.MkdirTemp("", "cobra-init")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(dir)
+	defer func(path string) {
+		if err := os.RemoveAll(path); err != nil {
+			t.Fatalf("could not remove path %s: %v", path, err)
+		}
+	}(dir)
 
 	tests := []struct {
 		name      string
@@ -52,7 +55,9 @@ func TestGoldenInitCmd(t *testing.T) {
 			projectPath, err := initializeProject(tt.args)
 			defer func() {
 				if projectPath != "" {
-					os.RemoveAll(projectPath)
+					if err := os.RemoveAll(projectPath); err != nil {
+						t.Fatalf("could not remove path %s: %v", projectPath, err)
+					}
 				}
 			}()
 
@@ -72,8 +77,7 @@ func TestGoldenInitCmd(t *testing.T) {
 			for _, f := range expectedFiles {
 				generatedFile := fmt.Sprintf("%s/%s", projectPath, f)
 				goldenFile := fmt.Sprintf("testdata/%s.golden", filepath.Base(f))
-				err := compareFiles(generatedFile, goldenFile)
-				if err != nil {
+				if err := compareFiles(generatedFile, goldenFile); err != nil {
 					t.Fatal(err)
 				}
 			}

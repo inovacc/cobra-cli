@@ -40,7 +40,11 @@ func (p *Project) Create() error {
 	if err != nil {
 		return err
 	}
-	defer mainFile.Close()
+	defer func(mainFile *os.File) {
+		if err := mainFile.Close(); err != nil {
+			cobra.CheckErr(err)
+		}
+	}(mainFile)
 
 	mainTemplate := template.Must(template.New("main").Parse(string(tpl.MainTemplate())))
 	err = mainTemplate.Execute(mainFile, p)
@@ -56,7 +60,11 @@ func (p *Project) Create() error {
 	if err != nil {
 		return err
 	}
-	defer rootFile.Close()
+	defer func(rootFile *os.File) {
+		if err := rootFile.Close(); err != nil {
+			cobra.CheckErr(err)
+		}
+	}(rootFile)
 
 	rootTemplate := template.Must(template.New("root").Parse(string(tpl.RootTemplate())))
 	err = rootTemplate.Execute(rootFile, p)
@@ -76,7 +84,11 @@ func (p *Project) createLicenseFile() error {
 	if err != nil {
 		return err
 	}
-	defer licenseFile.Close()
+	defer func(licenseFile *os.File) {
+		if err := licenseFile.Close(); err != nil {
+			cobra.CheckErr(err)
+		}
+	}(licenseFile)
 
 	licenseTemplate := template.Must(template.New("license").Parse(p.Legal.Text))
 	return licenseTemplate.Execute(licenseFile, data)
@@ -87,7 +99,11 @@ func (c *Command) Create() error {
 	if err != nil {
 		return err
 	}
-	defer cmdFile.Close()
+	defer func(cmdFile *os.File) {
+		if err := cmdFile.Close(); err != nil {
+			cobra.CheckErr(err)
+		}
+	}(cmdFile)
 
 	commandTemplate := template.Must(template.New("sub").Parse(string(tpl.AddCommandTemplate())))
 	err = commandTemplate.Execute(cmdFile, c)
