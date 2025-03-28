@@ -22,7 +22,7 @@ func MainTemplate() []byte {
 package main
 
 import (
-	"{{ .PkgName }}"
+	"{{ .PkgName }}/cmd"
 	_ "go.uber.org/automaxprocs"
 )
 

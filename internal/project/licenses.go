@@ -13,7 +13,7 @@
 
 // Parts inspired by https://github.com/ryanuber/go-license
 
-package cmd
+package project
 
 import (
 	"fmt"
@@ -52,12 +52,12 @@ func init() {
 	initAgpl()
 }
 
-// getLicense returns license specified by user in flag or in config.
+// GetLicense returns license specified by user in flag or in config.
 // If user didn't specify the license, it returns none
 //
 // TODO: Inspect project for existing license
-func getLicense() License {
-	// If explicitly flagged, use that.
+func GetLicense() License {
+	userLicense := viper.GetString("license")
 	if userLicense != "" {
 		return findLicense(userLicense)
 	}
@@ -77,14 +77,12 @@ func getLicense() License {
 	return Licenses["none"]
 }
 
-func copyrightLine() string {
-	author := viper.GetString("author")
-
+func CopyrightLine() string {
 	year := viper.GetString("year") // For tests.
 	if year == "" {
 		year = time.Now().Format("2006")
 	}
-	return fmt.Sprintf("Copyright © %s %s", year, author)
+	return fmt.Sprintf("Copyright © %s %s", year, viper.GetString("author"))
 }
 
 // findLicense looks for License object of built-in licenses.

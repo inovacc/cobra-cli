@@ -13,7 +13,7 @@
 
 // Parts inspired by https://github.com/ryanuber/go-license
 
-package cmd
+package project
 
 func initBsdClause3() {
 	Licenses["bsd"] = License{

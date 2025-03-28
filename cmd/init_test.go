@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/inovacc/cobra-cli/internal/project"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,14 +10,14 @@ import (
 	"github.com/spf13/viper"
 )
 
-func getProject() *Project {
+func getProject() *project.Project {
 	wd, _ := os.Getwd()
-	return &Project{
+	return &project.Project{
 		AbsolutePath: fmt.Sprintf("%s/testproject", wd),
-		Legal:        getLicense(),
-		Copyright:    copyrightLine(),
+		Legal:        project.GetLicense(),
+		Copyright:    project.CopyrightLine(),
 		AppName:      "cmd",
-		PkgName:      "github.com/inovacc/cobra-cli/cmd",
+		PkgName:      "github.com/inovacc/cobra-cli",
 		Viper:        true,
 	}
 }
@@ -38,10 +39,9 @@ func TestGoldenInitCmd(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			viper.Set("useViper", true)
 			viper.Set("license", "apache")
-			projectPath, err := initializeProject(tt.args)
+			projectPath, err := project.InitializeProject(tt.args)
 			defer func() {
 				if projectPath != "" {
 					if err := os.RemoveAll(projectPath); err != nil {
@@ -66,7 +66,7 @@ func TestGoldenInitCmd(t *testing.T) {
 			for _, f := range expectedFiles {
 				generatedFile := fmt.Sprintf("%s/%s", projectPath, f)
 				goldenFile := fmt.Sprintf("testdata/%s.golden", filepath.Base(f))
-				if err := compareFiles(generatedFile, goldenFile); err != nil {
+				if err := project.CompareFiles(generatedFile, goldenFile); err != nil {
 					t.Fatal(err)
 				}
 			}
