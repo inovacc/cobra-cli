@@ -3,7 +3,7 @@
 Cobra provides its own program that will create your application and add any
 commands you want. It's the easiest way to incorporate Cobra into your application.
 
-Install the cobra generator with the command `go install github.com/spf13/cobra-cli@latest`. 
+Install the cobra generator with the command `go install github.com/inovacc/cobra-cli@latest`. 
 Go will automatically install it in your `$GOPATH/bin` directory which should be in your $PATH. 
 
 Once installed you should have the `cobra-cli` command available. Confirm by typing `cobra-cli` at a 
@@ -56,7 +56,7 @@ cobra-cli init
 go run main.go
 ```
 
-cobra-cli init can also be run from a subdirectory such as how the [cobra generator itself is organized](https://github.com/spf13/cobra-cli).
+cobra-cli init can also be run from a subdirectory such as how the [cobra generator itself is organized](https://github.com/inovacc/cobra-cli).
 This is useful if you want to keep your application code separate from your library code.
 
 #### Optional flags:
