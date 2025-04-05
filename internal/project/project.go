@@ -2,19 +2,9 @@ package project
 
 import (
 	"fmt"
-	"github.com/go-git/go-git/v5"
 	"github.com/spf13/afero"
 	"github.com/spf13/viper"
-	"os"
-	"path/filepath"
 )
-
-func init() {
-	_, err := git.PlainOpen(filepath.Clean("."))
-	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "failed to open git repository: %s\n", err)
-	}
-}
 
 type Project struct {
 	afs          afero.Fs
