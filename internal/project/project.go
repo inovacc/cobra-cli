@@ -9,10 +9,7 @@ import (
 	"path/filepath"
 )
 
-var fs afero.Fs
-
 func init() {
-	fs = afero.NewOsFs()
 	_, err := git.PlainOpen(filepath.Clean("."))
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "failed to open git repository: %s\n", err)
@@ -28,6 +25,8 @@ type Project struct {
 	Viper        bool
 	AppName      string
 }
+
+var afs afero.Fs
 
 // NewProject creates a new project structure.
 func NewProject(fs afero.Fs, absPath, pkgName, appName string) *Project {

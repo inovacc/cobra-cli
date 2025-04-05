@@ -97,3 +97,26 @@ func CompareFiles(pathA, pathB string) error {
 	}
 	return nil
 }
+
+func CompareContent(contentA, contentB []byte) error {
+	if !bytes.Equal(ensureLF(contentA), ensureLF(contentB)) {
+		output := new(bytes.Buffer)
+		_, _ = fmt.Fprintf(output, "Contents are not equal!\n\n")
+
+		diffPath, err := exec.LookPath("diff")
+		if err != nil {
+			// Don't execute diff if it can't be found.
+			return nil
+		}
+		diffCmd := exec.Command(diffPath, "-u", "--strip-trailing-cr")
+		diffCmd.Stdin = bytes.NewReader(contentA)
+		diffCmd.Stdout = output
+		diffCmd.Stderr = output
+
+		if err := diffCmd.Run(); err != nil {
+			_, _ = fmt.Fprintf(output, "\n%s", err.Error())
+		}
+		return errors.New(output.String())
+	}
+	return nil
+}
