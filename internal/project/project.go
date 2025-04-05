@@ -2,13 +2,22 @@ package project
 
 import (
 	"fmt"
+	"github.com/go-git/go-git/v5"
 	"github.com/spf13/afero"
 	"github.com/spf13/viper"
-	"text/template"
-
-	"github.com/inovacc/cobra-cli/tpl"
-	"github.com/spf13/cobra"
+	"os"
+	"path/filepath"
 )
+
+var fs afero.Fs
+
+func init() {
+	fs = afero.NewOsFs()
+	_, err := git.PlainOpen(filepath.Clean("."))
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "failed to open git repository: %s\n", err)
+	}
+}
 
 type Project struct {
 	afs          afero.Fs
@@ -25,9 +34,7 @@ func NewProject(fs afero.Fs, absPath, pkgName, appName string) *Project {
 	return &Project{
 		afs:          fs,
 		PkgName:      pkgName,
-		Copyright:    CopyrightLine(),
 		AbsolutePath: absPath,
-		Legal:        GetLicense(),
 		Viper:        viper.GetBool("useViper"),
 		AppName:      appName,
 	}
@@ -59,18 +66,7 @@ func (p *Project) Create() error {
 
 	// Create main.go
 	mainPath := fmt.Sprintf("%s/main.go", p.AbsolutePath)
-	mainFile, err := p.afs.Create(mainPath)
-	if err != nil {
-		return err
-	}
-	defer func(mainFile afero.File) {
-		if err := mainFile.Close(); err != nil {
-			cobra.CheckErr(err)
-		}
-	}(mainFile)
-
-	mainTemplate := template.Must(template.New("main").Parse(string(tpl.MainTemplate())))
-	if err := mainTemplate.Execute(mainFile, p); err != nil {
+	if err := mainTemplate(p.afs, mainPath, p); err != nil {
 		return err
 	}
 
@@ -84,55 +80,20 @@ func (p *Project) Create() error {
 
 	// Create cmd/root.go
 	rootFilePath := fmt.Sprintf("%s/root.go", cmdPath)
-	rootFile, err := p.afs.Create(rootFilePath)
-	if err != nil {
+	if err := rootTemplate(p.afs, rootFilePath, p); err != nil {
 		return err
 	}
-	defer func(rootFile afero.File) {
-		if err := rootFile.Close(); err != nil {
-			cobra.CheckErr(err)
-		}
-	}(rootFile)
 
-	rootTemplate := template.Must(template.New("root").Parse(string(tpl.RootTemplate())))
-	if err := rootTemplate.Execute(rootFile, p); err != nil {
-		return err
-	}
-	return p.createLicenseFile()
-}
-
-func (p *Project) createLicenseFile() error {
-	data := map[string]any{
-		"copyright": CopyrightLine(),
-	}
 	licensePath := fmt.Sprintf("%s/LICENSE", p.AbsolutePath)
-	licenseFile, err := p.afs.Create(licensePath)
-	if err != nil {
+	if err := licenseTemplate(p.afs, licensePath); err != nil {
 		return err
 	}
-	defer func(licenseFile afero.File) {
-		if err := licenseFile.Close(); err != nil {
-			cobra.CheckErr(err)
-		}
-	}(licenseFile)
 
-	licenseTemplate := template.Must(template.New("license").Parse(p.Legal.Text))
-	return licenseTemplate.Execute(licenseFile, data)
+	return nil
 }
 
 // Create generates a new command file under /cmd.
 func (c *Command) Create() error {
 	cmdFilePath := fmt.Sprintf("%s/cmd/%s.go", c.AbsolutePath, c.CmdName)
-	cmdFile, err := c.afs.Create(cmdFilePath)
-	if err != nil {
-		return err
-	}
-	defer func(cmdFile afero.File) {
-		if err := cmdFile.Close(); err != nil {
-			cobra.CheckErr(err)
-		}
-	}(cmdFile)
-
-	commandTemplate := template.Must(template.New("sub").Parse(string(tpl.AddCommandTemplate())))
-	return commandTemplate.Execute(cmdFile, c)
+	return addCommandTemplate(c.afs, cmdFilePath, c)
 }

@@ -10,18 +10,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-func getProject() *project.Project {
-	wd, _ := os.Getwd()
-	return &project.Project{
-		AbsolutePath: fmt.Sprintf("%s/testproject", wd),
-		Legal:        project.GetLicense(),
-		Copyright:    project.CopyrightLine(),
-		AppName:      "cmd",
-		PkgName:      "github.com/inovacc/cobra-cli",
-		Viper:        true,
-	}
-}
-
 func TestGoldenInitCmd(t *testing.T) {
 	tests := []struct {
 		name      string
