@@ -53,7 +53,7 @@ func init() {
 
 	viper.SetDefault("author", "NAME HERE <EMAIL ADDRESS>")
 	viper.SetDefault("license", "none")
-	viper.SetDefault("useViper", false)
+	//viper.SetDefault("useViper", false)
 
 	rootCmd.AddCommand(addCmd)
 	rootCmd.AddCommand(initCmd)

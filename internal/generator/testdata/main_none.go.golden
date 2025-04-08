@@ -1,0 +1,10 @@
+package main
+
+import (
+	_ "go.uber.org/automaxprocs"
+	"myproject/cmd"
+)
+
+func main() {
+	cmd.Execute()
+}

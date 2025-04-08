@@ -1,4 +1,4 @@
-package project
+package generator
 
 import (
 	"embed"
@@ -7,33 +7,22 @@ import (
 	"time"
 )
 
-//go:embed tpl/*.tmpl
-var templates embed.FS
-
-func getLicenseHeader(name string) string {
-	data, err := templates.ReadFile(fmt.Sprintf("tpl/header_%s.tmpl", name))
-	if err != nil {
-		return ""
-	}
-	return string(data)
-}
-
 type License struct {
 	code            string   // The code name of the license
 	Name            string   // The type of license in use
 	PossibleMatches []string // Similar names to guess
 	Header          string   // License header for source files
+	Body            string   // License body
 	Copyright       string   // Copyright line
-	licensePath     string   // License file path
 }
 
-func NewLicense(name string) License {
+func newLicense(name string, templates embed.FS) (*License, error) {
 	year := viper.GetString("year")
 	if year == "" {
 		year = time.Now().Format("2006")
 	}
 
-	licenseDefinitions := map[string]License{
+	licenseDefinitions := map[string]*License{
 		"apache2": {
 			code:            "apache_2",
 			Name:            "Apache 2.0",
@@ -78,7 +67,7 @@ func NewLicense(name string) License {
 
 	def, ok := licenseDefinitions[name]
 	if !ok {
-		def = License{
+		def = &License{
 			code:            "none",
 			Name:            "None",
 			PossibleMatches: []string{"none", "false"},
@@ -86,66 +75,34 @@ func NewLicense(name string) License {
 	}
 
 	def.Copyright = fmt.Sprintf("Copyright © %s %s", year, viper.GetString("author"))
-	def.Header = getLicenseHeader(def.code)
-	def.licensePath = fmt.Sprintf("license_%s.tmpl", def.code)
 
-	return def
+	if def.code != "none" {
+		if err := def.getLicenseHeader(templates); err != nil {
+			return nil, err
+		}
+
+		if err := def.getLicenseBody(templates); err != nil {
+			return nil, err
+		}
+	}
+
+	return def, nil
 }
 
-func (l License) processLicense() {
-
+func (l *License) getLicenseHeader(templates embed.FS) error {
+	data, err := templates.ReadFile(fmt.Sprintf("tpl/header_%s.tmpl", l.code))
+	if err != nil {
+		return err
+	}
+	l.Header = string(data)
+	return nil
 }
 
-//func renderTemplate(afs afero.Fs, name, filename, templateName string, data any) error {
-//	file, err := afs.Create(filename)
-//	if err != nil {
-//		return err
-//	}
-//	defer func(mainFile afero.File) {
-//		if err := mainFile.Close(); err != nil {
-//			cobra.CheckErr(err)
-//		}
-//	}(file)
-//
-//	templateFS, err := fs.Sub(templates, "tpl")
-//	if err != nil {
-//		return err
-//	}
-//
-//	if none {
-//		templateName = fmt.Sprintf("%s_none.tmpl", templateName[0:len(templateName)-5])
-//	}
-//
-//	tmpl, err := template.New(name).ParseFS(templateFS, templateName)
-//	if err != nil {
-//		return err
-//	}
-//
-//	if err := tmpl.ExecuteTemplate(file, templateName, data); err != nil {
-//		return err
-//	}
-//	return nil
-//}
-//
-//func mainTemplate(afs afero.Fs, filename string, data any, none bool) error {
-//	return renderTemplate(afs, "main", filename, "main.tmpl", data, none)
-//}
-//
-//func rootTemplate(afs afero.Fs, filename string, data any, none bool) error {
-//	return renderTemplate(afs, "root", filename, "root.tmpl", data, none)
-//}
-//
-//func addCommandTemplate(afs afero.Fs, filename string, data any, none bool) error {
-//	return renderTemplate(afs, "sub", filename, "add_command.tmpl", data, none)
-//}
-//
-//func licenseTemplate(afs afero.Fs, filename string) error {
-//	userLicense := viper.GetString("license")
-//	license := findLicense(userLicense)
-//	if license.code != "none" {
-//		if err := renderTemplate(afs, "license", filename, license.licensePath, license); err != nil {
-//			return err
-//		}
-//	}
-//	return nil
-//}
+func (l *License) getLicenseBody(templates embed.FS) error {
+	data, err := templates.ReadFile(fmt.Sprintf("tpl/license_%s.tmpl", l.code))
+	if err != nil {
+		return err
+	}
+	l.Body = string(data)
+	return nil
+}

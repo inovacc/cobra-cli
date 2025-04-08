@@ -10,3 +10,8 @@ tasks:
   fmt:
     cmds:
       - golangci-lint fmt
+
+  all:
+    deps:
+      - fmt
+      - test
