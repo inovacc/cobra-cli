@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"text/template"
 )
 
@@ -130,6 +132,15 @@ func (g *Generator) CreateProject() error {
 
 // AddCommandProject sets up the project structure and files for a new command.
 func (g *Generator) AddCommandProject() error {
+	if !g.findLicense() {
+		return errors.New("no legal project")
+	}
+
+	command := &Command{
+		CmdName: project.ValidateCmdName(args[0]),
+		Project: g.project,
+	}
+
 	// Ensure base directory exists
 	if _, err := g.afs.Stat(g.project.AbsolutePath); err != nil {
 		if err := g.afs.MkdirAll(g.project.AbsolutePath, 0754); err != nil {
@@ -137,7 +148,7 @@ func (g *Generator) AddCommandProject() error {
 		}
 	}
 
-	if err := g.renderTemplate(g.getFileContentRoot()); err != nil {
+	if err := g.renderTemplate(g.getFileContentSub()); err != nil {
 		return err
 	}
 
@@ -264,4 +275,57 @@ func (g *Generator) renderTemplate(content Content, err error) error {
 		return err
 	}
 	return nil
+}
+
+func (g *Generator) findLicense() bool {
+	if _, err := g.afs.Stat(g.project.AbsolutePath); err != nil {
+		return false
+	}
+
+	licensePath := fmt.Sprintf("%s/LICENSE", g.project.AbsolutePath)
+
+	if _, err := g.afs.Stat(licensePath); err != nil {
+		return false
+	}
+
+	license, err := afero.ReadFile(g.afs, licensePath)
+	if err != nil {
+		return false
+	}
+
+	// load all licenses from templates
+	licenses, err := g.templates.ReadDir("tpl")
+	if err != nil {
+		return false
+	}
+
+	// check if the license content matches any of the templates
+	for _, file := range licenses {
+		if file.IsDir() {
+			continue
+		}
+
+		if !strings.Contains(file.Name(), "license_") {
+			continue
+		}
+
+		templatePath := fmt.Sprintf("tpl/%s", file.Name())
+
+		templateContent, err := g.templates.ReadFile(templatePath)
+		if err != nil {
+			return false
+		}
+
+		if string(license) == string(templateContent) {
+			templatePath = path.Base(templatePath)
+			licenseCode := strings.TrimSuffix(strings.TrimPrefix(templatePath, "license_"), ".tmpl")
+			licenseCode = strings.ReplaceAll(licenseCode, "_", "")
+
+			viper.Set("license", licenseCode)
+
+			return g.SetLicense() == nil
+		}
+	}
+
+	return true
 }

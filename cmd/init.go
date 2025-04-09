@@ -19,7 +19,6 @@ import (
 	"github.com/inovacc/cobra-cli/internal/project"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 func init() {
@@ -56,13 +55,6 @@ Cobra init must be run inside of a go module (please run "go mod init <MODNAME>"
 			afs := afero.NewOsFs()
 			newProject, err := project.NewProject(args)
 			cobra.CheckErr(err)
-
-			{
-				viper.SetDefault("license", "apache2")
-				newProject.SetPkgName("github.com/acme/myproject")                         //todo remove this
-				newProject.SetAbsolutePath("/home/dyam/GolandProjects/cobra-cli/testdata") //todo remove this
-				newProject.SetAppName("myapp")                                             //todo remove this
-			}
 
 			projectGenerator, err := project.NewProjectGenerator(afs, newProject)
 			cobra.CheckErr(err)

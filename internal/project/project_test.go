@@ -8,13 +8,14 @@ import (
 	"testing"
 )
 
-func TestGenerate(t *testing.T) {
+var afs = afero.NewMemMapFs()
+
+func TestGenerateRoot(t *testing.T) {
 	viper.SetDefault("author", "NAME HERE <EMAIL ADDRESS>")
 	viper.SetDefault("license", "apache2")
 	viper.SetDefault("projectName", "testApp")
 	defer viper.Reset()
 
-	afs := afero.NewMemMapFs()
 	project, err := NewProject([]string{"myproject"})
 	if err != nil {
 		t.Fatal(err)
@@ -101,5 +102,27 @@ func TestGenerate(t *testing.T) {
 		if err := CompareContent(data, goldenFile); err != nil {
 			t.Fatalf("Error comparing files: %v", err)
 		}
+	}
+}
+
+func TestGenerateSub(t *testing.T) {
+	viper.SetDefault("projectName", "testApp")
+	defer viper.Reset()
+
+	project, err := NewProject([]string{"myproject"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	project.SetPkgName("github.com/acme/myproject")
+	project.SetAbsolutePath("github.com/acme")
+
+	generator, err := NewProjectGenerator(afs, project)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := generator.AddCommandProject(); err != nil {
+		t.Fatalf("Error creating sub command: %v", err)
 	}
 }
