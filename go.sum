@@ -15,8 +15,12 @@ github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/inovacc/cron v0.0.0-20240628230802-1735fdd38752 h1:HUAue7ee99743tf5jTfvFzhFBdrcjIH9ew8U4wr+2wM=
 github.com/inovacc/cron v0.0.0-20240628230802-1735fdd38752/go.mod h1:bC6qlt9Rv/UbEEGPVso5kE/0Je70hJN+X3aldinbWNY=
+github.com/inovacc/ksuid v1.0.0 h1:zTe8CO86pVsgogAM2D/1x+DV3uS0ZcMhKDkqtKOOvS4=
+github.com/inovacc/ksuid v1.0.0/go.mod h1:t2zVMADGYfPQ+kYgqb3AocpTq8XyMdgrOQ+IHye9RAs=
 github.com/inovacc/logger v0.0.0-20250326152935-b70a63df92c9 h1:lwO7uO0F9ZtD1tVd6UD69/dYrtO//tya67rJfITxYsU=
 github.com/inovacc/logger v0.0.0-20250326152935-b70a63df92c9/go.mod h1:Dd8IlcVBtMN6+MEW98FMzZP6B2KaYt2ntnUmNjL7JoE=
+github.com/inovacc/utils/v2 v2.0.1 h1:VW3HV7KaBvN8K5fX5Afn4PyeDf4CS+MQn/RdZmjEqZA=
+github.com/inovacc/utils/v2 v2.0.1/go.mod h1:uTyMlHWkgNcYbX/2qeIkMA1EU2pnXnYsOeO70KY2wEY=
 github.com/kr/pretty v0.2.1/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
 github.com/kr/pretty v0.3.1/go.mod h1:hoEshYVHaxMs3cyo3Yncou5ZscifuDolrwPKZanG3xk=
@@ -51,8 +55,8 @@ github.com/subosito/gotenv v1.6.0 h1:9NlTDc1FTs4qu0DDq7AEtTPNw6SVm7uBMsUCUjABIf8
 github.com/subosito/gotenv v1.6.0/go.mod h1:Dk4QP5c2W3ibzajGcXpNraDfq2IrhjMIvMSWPKKo0FU=
 go.uber.org/multierr v1.11.0 h1:blXXJkSxSSfBVBlC76pxqeO+LN3aDfLQo+309xJstO0=
 go.uber.org/multierr v1.11.0/go.mod h1:20+QtiLqy0Nd6FdQB9TLXag12DsQkrbs3htMFfDN80Y=
-golang.org/x/sys v0.31.0 h1:ioabZlmFYtWhL+TRYpcnNlLwhyxaM9kWTDEmfnprqik=
-golang.org/x/sys v0.31.0/go.mod h1:BJP2sWEmIv4KK5OTEluFJCKSidICx8ciO85XgH3Ak8k=
+golang.org/x/sys v0.32.0 h1:s77OFDvIQeibCmezSnk/q6iAfkdiQaJi4VzroCFrN20=
+golang.org/x/sys v0.32.0/go.mod h1:BJP2sWEmIv4KK5OTEluFJCKSidICx8ciO85XgH3Ak8k=
 golang.org/x/text v0.23.0 h1:D71I7dUrlY+VX0gQShAThNGHFxZ13dGLBHQLVl1mJlY=
 golang.org/x/text v0.23.0/go.mod h1:/BLNzu4aZCJ1+kcD0DNRotWKage4q2rGVAg4o22unh4=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=

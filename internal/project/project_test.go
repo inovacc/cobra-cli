@@ -36,72 +36,48 @@ func TestGenerateRoot(t *testing.T) {
 		t.Fatalf("Error creating Project: %v", err)
 	}
 
-	// Check if the LICENSE file was created
-	{
-		if !generator.None {
-			data, err := afero.ReadFile(afs, filepath.Join(generator.Project.AbsolutePath, "LICENSE"))
-			if err != nil {
-				t.Fatalf("Error reading LICENSE file: %v", err)
-			}
-
-			templateName := "testdata/LICENSE.golden"
-
-			goldenFile, err := os.ReadFile(templateName)
-			if err != nil {
-				t.Fatalf("Error reading golden file: %v", err)
-			}
-
-			if err := compareContent(data, goldenFile); err != nil {
-				t.Fatalf("Error comparing files: %v", err)
-			}
-		}
+	// Check LICENSE
+	if !generator.None {
+		assertFileMatchesGolden(t, afs,
+			filepath.Join(generator.Project.AbsolutePath, "LICENSE"),
+			"testdata/LICENSE.golden")
 	}
 
-	// Check if the main.go file was created
-	{
-		data, err := afero.ReadFile(afs, filepath.Join(generator.Project.AbsolutePath, "main.go"))
-		if err != nil {
-			t.Fatalf("Error reading main.go file: %v", err)
-		}
+	// Check main.go
+	assertFileMatchesGolden(t, afs,
+		filepath.Join(generator.Project.AbsolutePath, "main.go"),
+		func() string {
+			if generator.None {
+				return "testdata/main_none.golden"
+			}
+			return "testdata/main.go.golden"
+		}(),
+	)
 
-		templateName := "testdata/main.go.golden"
+	// Check cmd/root.go
+	assertFileMatchesGolden(t, afs,
+		filepath.Join(generator.Project.AbsolutePath, "cmd/root.go"),
+		func() string {
+			if generator.None {
+				return "testdata/root_none.golden"
+			}
+			return "testdata/root.golden"
+		}(),
+	)
 
-		if generator.None {
-			templateName = "testdata/main_none.golden"
-		}
+	// Check config files
+	assertFileMatchesGolden(t, afs,
+		filepath.Join(generator.Project.AbsolutePath, "internal/config/config.go"),
+		"testdata/config.golden")
 
-		goldenFile, err := os.ReadFile(templateName)
-		if err != nil {
-			t.Fatalf("Error reading golden file: %v", err)
-		}
+	assertFileMatchesGolden(t, afs,
+		filepath.Join(generator.Project.AbsolutePath, "internal/config/config_test.go"),
+		"testdata/config_test.golden")
 
-		if err := compareContent(data, goldenFile); err != nil {
-			t.Fatalf("Error comparing files: %v", err)
-		}
-	}
-
-	// Check if the cmd/root.go file was created
-	{
-		data, err := afero.ReadFile(afs, filepath.Join(generator.Project.AbsolutePath, "cmd/root.go"))
-		if err != nil {
-			t.Fatalf("Error reading root.go file: %v", err)
-		}
-
-		templateName := "testdata/root.golden"
-
-		if generator.None {
-			templateName = "testdata/root_none.golden"
-		}
-
-		goldenFile, err := os.ReadFile(templateName)
-		if err != nil {
-			t.Fatalf("Error reading golden file: %v", err)
-		}
-
-		if err := compareContent(data, goldenFile); err != nil {
-			t.Fatalf("Error comparing files: %v", err)
-		}
-	}
+	// Check service
+	assertFileMatchesGolden(t, afs,
+		filepath.Join(generator.Project.AbsolutePath, "internal/service/service.go"),
+		"testdata/service.golden")
 }
 
 func TestGenerateSub(t *testing.T) {
@@ -124,26 +100,37 @@ func TestGenerateSub(t *testing.T) {
 		t.Fatalf("Error creating sub command: %v", err)
 	}
 
-	// Check if the cmd/service.go file was created
-	{
-		data, err := afero.ReadFile(afs, filepath.Join(generator.Project.AbsolutePath, "service.go"))
-		if err != nil {
-			t.Fatalf("Error reading root.go file: %v", err)
-		}
+	// Check subcommand
+	assertFileMatchesGolden(t, afs,
+		filepath.Join(generator.Project.AbsolutePath, "service.go"),
+		func() string {
+			if generator.None {
+				return "testdata/add_command_none.golden"
+			}
+			return "testdata/add_command.golden"
+		}(),
+	)
+}
 
-		templateName := "testdata/add_command.golden"
+func assertFileMatchesGolden(t *testing.T, fs afero.Fs, filePath string, goldenPath string) {
+	t.Helper()
 
-		if generator.None {
-			templateName = "testdata/add_command_none.golden"
-		}
+	exists, err := afero.Exists(fs, filePath)
+	if err != nil || !exists {
+		t.Fatalf("Expected file does not exist: %s", filePath)
+	}
 
-		goldenFile, err := os.ReadFile(templateName)
-		if err != nil {
-			t.Fatalf("Error reading golden file: %v", err)
-		}
+	actual, err := afero.ReadFile(fs, filePath)
+	if err != nil {
+		t.Fatalf("Error reading generated file: %s\n%v", filePath, err)
+	}
 
-		if err := compareContent(data, goldenFile); err != nil {
-			t.Fatalf("Error comparing files: %v", err)
-		}
+	expected, err := os.ReadFile(goldenPath)
+	if err != nil {
+		t.Fatalf("Error reading golden file: %s\n%v", goldenPath, err)
+	}
+
+	if err := compareContent(actual, expected); err != nil {
+		t.Fatalf("Mismatch for %s:\n%v", filePath, err)
 	}
 }

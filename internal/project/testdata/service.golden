@@ -1,7 +1,7 @@
 package service
 
 import (
-	"{{ .PkgName }}/internal/config"
+	"github.com/acme/myproject/internal/config"
 	"github.com/spf13/cobra"
 )
 

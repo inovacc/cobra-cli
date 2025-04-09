@@ -243,6 +243,14 @@ func (g *Generator) CreateProject() error {
 		return err
 	}
 
+	if err := g.getFileContentConfig(); err != nil {
+		return err
+	}
+
+	if err := g.getFileContentService(); err != nil {
+		return err
+	}
+
 	if err := g.renderTemplate(); err != nil {
 		return err
 	}
@@ -345,6 +353,86 @@ func (g *Generator) getFileContentRoot() error {
 
 	if g.None {
 		content.TemplateFilePath = "tpl/root_none.tmpl"
+	}
+
+	defer func() {
+		g.Content = append(g.Content, content)
+	}()
+
+	data, err := g.Templates.ReadFile(content.TemplateFilePath)
+	if err != nil {
+		return err
+	}
+
+	content.TemplateContent = string(data)
+	content.Data = g.Project
+	content.Dirty = false
+	return nil
+}
+
+func (g *Generator) getFileContentConfig() error {
+	content1 := Content{
+		Name:             "config",
+		TemplateFilePath: "tpl/config.tmpl",
+		FilePath:         fmt.Sprintf("%s/internal/config/config.go", g.Project.AbsolutePath),
+		Dirty:            true,
+	}
+
+	content2 := Content{
+		Name:             "config_test",
+		TemplateFilePath: "tpl/config_test.tmpl",
+		FilePath:         fmt.Sprintf("%s/internal/config/config_test.go", g.Project.AbsolutePath),
+		Dirty:            true,
+	}
+
+	content3 := Content{
+		Name:             "config_custom",
+		TemplateFilePath: "tpl/custom.tmpl",
+		FilePath:         fmt.Sprintf("%s/internal/config/custom.go", g.Project.AbsolutePath),
+		Dirty:            true,
+	}
+
+	defer func() {
+		g.Content = append(g.Content, content1)
+		g.Content = append(g.Content, content2)
+		g.Content = append(g.Content, content3)
+	}()
+
+	data1, err := g.Templates.ReadFile(content1.TemplateFilePath)
+	if err != nil {
+		return err
+	}
+
+	data2, err := g.Templates.ReadFile(content2.TemplateFilePath)
+	if err != nil {
+		return err
+	}
+
+	data3, err := g.Templates.ReadFile(content3.TemplateFilePath)
+	if err != nil {
+		return err
+	}
+
+	content1.TemplateContent = string(data1)
+	content1.Data = g.Project
+	content1.Dirty = false
+
+	content2.TemplateContent = string(data2)
+	content2.Data = g.Project
+	content2.Dirty = false
+
+	content3.TemplateContent = string(data3)
+	content3.Data = g.Project
+	content3.Dirty = false
+	return nil
+}
+
+func (g *Generator) getFileContentService() error {
+	content := Content{
+		Name:             "service",
+		TemplateFilePath: "tpl/service.tmpl",
+		FilePath:         fmt.Sprintf("%s/internal/service/service.go", g.Project.AbsolutePath),
+		Dirty:            true,
 	}
 
 	defer func() {

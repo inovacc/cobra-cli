@@ -50,13 +50,7 @@ func Execute() {
 }
 
 func init() {
-    cobra.OnInitialize(initConfig)
     rootCmd.CompletionOptions.DisableDefaultCmd = true
 
-	rootCmd.PersistentFlags().StringP("config", "c", "config.yaml", "config file (default is config.yaml)")
-	cobra.CheckErr(viper.BindPFlag("config", rootCmd.PersistentFlags().Lookup("config")))
-}
-
-func initConfig() {
-	cobra.CheckErr(config.InitConfig(&config.CustomConfig{}))
+	rootCmd.Flags().StringP("config", "c", "config.yaml", "config file (default is config.yaml)")
 }
