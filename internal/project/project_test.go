@@ -1,4 +1,4 @@
-package generator
+package project
 
 import (
 	"github.com/spf13/afero"
@@ -8,22 +8,12 @@ import (
 	"testing"
 )
 
-func TestMain(m *testing.M) {
-	// Set up viper defaults
+func TestGenerate(t *testing.T) {
 	viper.SetDefault("author", "NAME HERE <EMAIL ADDRESS>")
 	viper.SetDefault("license", "apache2")
 	viper.SetDefault("projectName", "testApp")
+	defer viper.Reset()
 
-	// Run the tests
-	code := m.Run()
-
-	// Clean up
-	viper.Reset()
-
-	os.Exit(code)
-}
-
-func TestGenerate(t *testing.T) {
 	afs := afero.NewMemMapFs()
 	project, err := NewProject([]string{"myproject"})
 	if err != nil {
@@ -33,7 +23,7 @@ func TestGenerate(t *testing.T) {
 	project.SetPkgName("github.com/acme/myproject")
 	project.SetAbsolutePath("github.com/acme")
 
-	generator, err := NewGenerator(afs, project)
+	generator, err := NewProjectGenerator(afs, project)
 	if err != nil {
 		t.Fatal(err)
 	}

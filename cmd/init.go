@@ -16,7 +16,7 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"github.com/inovacc/cobra-cli/internal/generator"
+	"github.com/inovacc/cobra-cli/internal/project"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -54,24 +54,24 @@ Cobra init must be run inside of a go module (please run "go mod init <MODNAME>"
 		},
 		Run: func(_ *cobra.Command, args []string) {
 			afs := afero.NewOsFs()
-			project, err := generator.NewProject(args)
+			newProject, err := project.NewProject(args)
 			cobra.CheckErr(err)
 
 			{
 				viper.SetDefault("license", "apache2")
-				project.SetPkgName("github.com/acme/myproject")                         //todo remove this
-				project.SetAbsolutePath("/home/dyam/GolandProjects/cobra-cli/testdata") //todo remove this
-				project.SetAppName("myapp")                                             //todo remove this}
+				newProject.SetPkgName("github.com/acme/myproject")                         //todo remove this
+				newProject.SetAbsolutePath("/home/dyam/GolandProjects/cobra-cli/testdata") //todo remove this
+				newProject.SetAppName("myapp")                                             //todo remove this
 			}
 
-			projectGenerator, err := generator.NewGenerator(afs, project)
+			projectGenerator, err := project.NewProjectGenerator(afs, newProject)
 			cobra.CheckErr(err)
 
 			cobra.CheckErr(projectGenerator.SetLicense())
 			cobra.CheckErr(projectGenerator.CreateProject())
 
-			cobra.CheckErr(generator.GoGet("github.com/spf13/cobra"))
-			cobra.CheckErr(generator.GoGet("go.uber.org/automaxprocs"))
+			cobra.CheckErr(project.GoGet("github.com/spf13/cobra"))
+			cobra.CheckErr(project.GoGet("go.uber.org/automaxprocs"))
 			fmt.Printf("Your Cobra application is ready at\n%s\n", projectGenerator.GetProjectPath())
 		},
 	}
