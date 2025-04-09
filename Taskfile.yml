@@ -1,0 +1,17 @@
+# https://taskfile.dev
+
+version: '3'
+
+tasks:
+  test:
+    cmds:
+      - golangci-lint run ./...
+
+  fmt:
+    cmds:
+      - golangci-lint fmt
+
+  all:
+    deps:
+      - fmt
+      - test
