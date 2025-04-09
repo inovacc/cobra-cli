@@ -163,7 +163,7 @@ year: 2020
 license:
   header: This file is part of CLI application foo.
   text: |
-    {{ .copyright }}
+    {{ .Copyright }}
 
     This is my license. There are many like it, but this one is mine.
     My license is my best friend. It is my life. I must master it as I must

@@ -1,7 +1,6 @@
 package project
 
 import (
-	"bufio"
 	"bytes"
 	"crypto/md5"
 	"embed"
@@ -11,8 +10,6 @@ import (
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"gopkg.in/yaml.v3"
-	"log"
 	"os"
 	"os/exec"
 	"path"
@@ -26,70 +23,6 @@ import (
 
 //go:embed tpl/*.tmpl
 var templates embed.FS
-
-var srcPaths []string
-
-func init() {
-	cobra.CheckErr(InitSrcPaths())
-}
-
-func detectGoPaths() ([]string, error) {
-	goPath := os.Getenv("GOPATH")
-	if goPath != "" {
-		return filepath.SplitList(goPath), nil
-	}
-
-	goExecutable := os.Getenv("COBRA_GO_EXECUTABLE")
-	if goExecutable == "" {
-		goExecutable = "go"
-	}
-
-	out, err := exec.Command(goExecutable, "env", "GOPATH").Output()
-	if err != nil {
-		return nil, fmt.Errorf("could not detect GOPATH: %w", err)
-	}
-
-	paths := filepath.SplitList(strings.TrimSpace(string(out)))
-	if len(paths) == 0 {
-		return nil, errors.New("$GOPATH is not set or could not be determined")
-	}
-
-	return paths, nil
-}
-
-func buildSrcPaths(goPaths []string) []string {
-	srcs := make([]string, 0, len(goPaths))
-	for _, gp := range goPaths {
-		srcs = append(srcs, filepath.Join(gp, "src"))
-	}
-	return srcs
-}
-
-func InitSrcPaths() error {
-	goPaths, err := detectGoPaths()
-	if err != nil {
-		return err
-	}
-	srcPaths = buildSrcPaths(goPaths)
-	return nil
-}
-
-func runDiff(pathA, pathB string) (string, error) {
-	diffPath, err := exec.LookPath("diff")
-	if err != nil {
-		return "", nil // diff no disponible
-	}
-
-	var output bytes.Buffer
-	cmd := exec.Command(diffPath, "-u", "--strip-trailing-cr", pathA, pathB)
-	cmd.Stdout = &output
-	cmd.Stderr = &output
-
-	if err := cmd.Run(); err != nil {
-		return output.String(), nil // ignora error de diff, lo importante es la salida
-	}
-	return output.String(), nil
-}
 
 func compareContent(contentA, contentB []byte) error {
 	if !bytes.Equal(ensureLF(contentA), ensureLF(contentB)) {
@@ -182,8 +115,9 @@ func modInfoJSON(args ...string) []byte {
 }
 
 type Command struct {
-	CmdName   string
-	CmdParent string
+	CmdName          string
+	CmdParent        string
+	ExtractedLicense string
 	*Project
 }
 
@@ -193,7 +127,7 @@ type Project struct {
 	AbsolutePath string
 	AppName      string
 	CmdName      string
-	Legal        *License //`json:"-" yaml:"-"`
+	Legal        *License
 }
 
 func NewProject(args []string) (*Project, error) {
@@ -256,7 +190,7 @@ func (g *Generator) SetLicense() error {
 	}
 
 	g.Project.Legal = license
-	g.None = g.Project.Legal.Code == "None"
+	g.None = g.Project.Legal.Code == "none"
 	return nil
 }
 
@@ -309,48 +243,41 @@ func (g *Generator) CreateProject() error {
 		return err
 	}
 
-	//TODO for debuging purpose
-	{
-		file, _ := os.OpenFile("data.yaml", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
-		defer file.Close()
-
-		if err := yaml.NewEncoder(file).Encode(g); err != nil {
-			return err
-		}
+	if err := g.renderTemplate(); err != nil {
+		return err
 	}
-
-	//if err := g.renderTemplate(); err != nil {
-	//	return err
-	//}
 
 	return nil
 }
 
 // AddCommandProject sets up the Project structure and files for a new command.
 func (g *Generator) AddCommandProject() error {
-	rootFilePath := filepath.Join(g.Project.PkgName, "cmd", "root.go")
-	if !stat(g.Afs, rootFilePath) {
-		return fmt.Errorf("no root file found on: %s", rootFilePath)
+	// find LICENSE and root.go file in project
+	_, rootGo, err := findLicenseAndRootGo(g.Afs, g.Project.AbsolutePath)
+	if err != nil {
+		return err
 	}
 
-	if !g.findLicense() {
-		return errors.New("no legal Project")
+	if !stat(g.Afs, rootGo) {
+		return fmt.Errorf("no root file found on: %s", rootGo)
 	}
+
+	g.Project.AbsolutePath = filepath.Dir(rootGo)
 
 	// Ensure base directory exists
-	if stat(g.Afs, g.Project.AbsolutePath) {
+	if !stat(g.Afs, g.Project.AbsolutePath) {
 		if err := g.Afs.MkdirAll(g.Project.AbsolutePath, 0754); err != nil {
 			return err
 		}
 	}
 
-	if err := g.getFileContentSub(); err != nil {
+	if err := g.getFileContentSub(rootGo); err != nil {
 		return err
 	}
 
-	//if err := g.renderTemplate(); err != nil {
-	//	return err
-	//}
+	if err := g.renderTemplate(); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -435,27 +362,27 @@ func (g *Generator) getFileContentRoot() error {
 	return nil
 }
 
-func (g *Generator) getFileContentSub() error {
+func (g *Generator) getFileContentSub(rootGo string) error {
 	content := Content{
 		Name:             "add_command",
-		FilePath:         fmt.Sprintf("%s/cmd/%s.go", g.Project.AbsolutePath, g.Project.AppName),
+		FilePath:         fmt.Sprintf("%s/%s.go", g.Project.AbsolutePath, g.Project.AppName),
 		TemplateFilePath: "tpl/add_command.tmpl",
 		Dirty:            true,
 	}
 
-	if g.None {
+	comment, err := extractBlockCommentBeforePackage(g.Afs, rootGo)
+	if err != nil {
+		return err
+	}
+
+	if comment == "" {
+		g.None = true
 		content.TemplateFilePath = "tpl/add_command_none.tmpl"
 	}
 
 	defer func() {
 		g.Content = append(g.Content, content)
 	}()
-
-	if !stat(g.Afs, content.FilePath) {
-		if err := g.Afs.MkdirAll(content.FilePath, 0751); err != nil {
-			return err
-		}
-	}
 
 	data, err := g.Templates.ReadFile(content.TemplateFilePath)
 	if err != nil {
@@ -464,12 +391,12 @@ func (g *Generator) getFileContentSub() error {
 
 	content.TemplateContent = string(data)
 	content.Data = Command{
-		CmdParent: "rootCmd",
-		CmdName:   g.Project.CmdName,
-		Project:   g.Project,
+		CmdParent:        "rootCmd",
+		CmdName:          g.Project.CmdName,
+		Project:          g.Project,
+		ExtractedLicense: comment,
 	}
 	content.Dirty = false
-
 	return nil
 }
 
@@ -484,87 +411,6 @@ func (g *Generator) renderTemplate() error {
 		}
 	}
 	return nil
-}
-
-func (g *Generator) findLicense() bool {
-	if !stat(g.Afs, g.Project.AbsolutePath) {
-		return false
-	}
-
-	licensePath := fmt.Sprintf("%s/LICENSE", g.Project.AbsolutePath)
-	if !stat(g.Afs, licensePath) {
-		return false
-	}
-
-	license, err := afero.ReadFile(g.Afs, licensePath)
-	if err != nil {
-		return false
-	}
-
-	// load all licenses from Templates
-	licenses, err := g.Templates.ReadDir("tpl")
-	if err != nil {
-		return false
-	}
-
-	// check if the license Content matches any of the Templates
-	for _, file := range licenses {
-		if file.IsDir() {
-			continue
-		}
-
-		if !strings.Contains(file.Name(), "license_") {
-			continue
-		}
-
-		templatePath := fmt.Sprintf("tpl/%s", file.Name())
-		templateContent, err := g.Templates.ReadFile(templatePath)
-		if err != nil {
-			return false
-		}
-
-		if string(license) == string(templateContent) {
-			licenseCode := strings.TrimSuffix(strings.TrimPrefix(path.Base(templatePath), "license_"), ".tmpl")
-			licenseCode = strings.ReplaceAll(licenseCode, "_", "")
-
-			viper.Set("license", licenseCode)
-
-			// extract copyright from license
-			author, err := g.extractAuthorFromFile(fmt.Sprintf("%s/main.go", g.Project.AbsolutePath))
-			if err != nil {
-				return false
-			}
-
-			viper.Set("author", author)
-
-			return g.SetLicense() == nil
-		}
-	}
-
-	return true
-}
-
-func (g *Generator) extractAuthorFromFile(filePath string) (string, error) {
-	file, err := g.Afs.Open(filePath)
-	if err != nil {
-		return "", err
-	}
-	defer func(file afero.File) {
-		if err := file.Close(); err != nil {
-			log.Println(err)
-		}
-	}(file)
-
-	re := regexp.MustCompile(`^Copyright © \d{4}\s+`)
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if re.MatchString(line) {
-			return re.ReplaceAllString(line, ""), nil
-		}
-	}
-	return "", fmt.Errorf("no matching copyright line found")
 }
 
 func renderFileContent(afs afero.Fs, content Content) error {
@@ -591,30 +437,6 @@ func stat(afs afero.Fs, namePath string) bool {
 		return false
 	}
 	return true
-}
-
-func hashLicenseContent(templates embed.FS, code string) string {
-	data, err := templates.ReadFile(fmt.Sprintf("tpl/license_%s.tmpl", code))
-	if err != nil {
-		return "invalid hash"
-	}
-	return fmt.Sprintf("%X", md5.Sum(data))
-}
-
-func getLicenseHeader(templates embed.FS, code string) string {
-	data, err := templates.ReadFile(fmt.Sprintf("tpl/header_%s.tmpl", code))
-	if err != nil {
-		return "No header license content"
-	}
-	return string(data)
-}
-
-func getLicenseBody(templates embed.FS, code string) string {
-	data, err := templates.ReadFile(fmt.Sprintf("tpl/license_%s.tmpl", code))
-	if err != nil {
-		return "No license content"
-	}
-	return string(data)
 }
 
 type License struct {
@@ -713,4 +535,76 @@ func contentLicenses(templates embed.FS) map[string]*License {
 			Copyright:       fmt.Sprintf("Copyright © %s %s", year, viper.GetString("author")),
 		},
 	}
+}
+
+func hashLicenseContent(templates embed.FS, code string) string {
+	data, err := templates.ReadFile(fmt.Sprintf("tpl/license_%s.tmpl", code))
+	if err != nil {
+		return "invalid hash"
+	}
+	return fmt.Sprintf("%X", md5.Sum(data))
+}
+
+func getLicenseHeader(templates embed.FS, code string) string {
+	data, err := templates.ReadFile(fmt.Sprintf("tpl/header_%s.tmpl", code))
+	if err != nil {
+		return "No header license content"
+	}
+	return string(data)
+}
+
+func getLicenseBody(templates embed.FS, code string) string {
+	data, err := templates.ReadFile(fmt.Sprintf("tpl/license_%s.tmpl", code))
+	if err != nil {
+		return "No license content"
+	}
+	return string(data)
+}
+
+func findLicenseAndRootGo(fs afero.Fs, root string) (string, string, error) {
+	var licensePath, rootGoPath string
+
+	root = filepath.Join(root, "..")
+
+	err := afero.Walk(fs, root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		switch info.Name() {
+		case "LICENSE":
+			licensePath = path
+		case "root.go":
+			rootGoPath = path
+		}
+		return nil
+	})
+
+	if err != nil {
+		return "", "", err
+	}
+
+	if licensePath == "" || rootGoPath == "" {
+		return "", "", fmt.Errorf("missing file(s): LICENSE=%v, root.go=%v", licensePath != "", rootGoPath != "")
+	}
+
+	return licensePath, rootGoPath, nil
+}
+
+func extractBlockCommentBeforePackage(fs afero.Fs, filePath string) (string, error) {
+	content, err := afero.ReadFile(fs, filePath)
+	if err != nil {
+		return "", err
+	}
+
+	re := regexp.MustCompile(`(?s)/\*.*?\*/\s*package\s+cmd`)
+	match := re.Find(content)
+	if match == nil {
+		return "", nil
+	}
+
+	block := regexp.MustCompile(`(?s)/\*.*?\*/`).Find(match)
+	return strings.TrimSpace(strings.ReplaceAll(strings.ReplaceAll(string(block), "/*", ""), "*/", "")), nil
 }

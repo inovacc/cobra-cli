@@ -12,7 +12,7 @@ var afs = afero.NewMemMapFs()
 
 func TestGenerateRoot(t *testing.T) {
 	viper.SetDefault("author", "NAME HERE <EMAIL ADDRESS>")
-	viper.SetDefault("license", "mit")
+	viper.SetDefault("license", "apache2")
 	viper.SetDefault("projectName", "testApp")
 	defer viper.Reset()
 
@@ -22,7 +22,6 @@ func TestGenerateRoot(t *testing.T) {
 	}
 
 	project.SetPkgName("github.com/acme/myproject")
-	//project.SetAbsolutePath("github.com/acme")
 
 	generator, err := NewProjectGenerator(afs, project)
 	if err != nil {
@@ -115,7 +114,6 @@ func TestGenerateSub(t *testing.T) {
 	}
 
 	project.SetPkgName("github.com/acme/myproject")
-	project.SetAbsolutePath("github.com/acme")
 
 	generator, err := NewProjectGenerator(afs, project)
 	if err != nil {
@@ -128,7 +126,7 @@ func TestGenerateSub(t *testing.T) {
 
 	// Check if the cmd/service.go file was created
 	{
-		data, err := afero.ReadFile(afs, filepath.Join(generator.Project.AbsolutePath, "cmd/service.go"))
+		data, err := afero.ReadFile(afs, filepath.Join(generator.Project.AbsolutePath, "service.go"))
 		if err != nil {
 			t.Fatalf("Error reading root.go file: %v", err)
 		}
