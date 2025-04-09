@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"os"
 
-    "github.com/acme/myproject/cmd"
+    "github.com/acme/myproject"
 	"github.com/spf13/cobra"
 )
 
@@ -41,7 +41,7 @@ to quickly create a Cobra application.`,
         }
         cmd.Println(path)
         return nil
-    }
+    },
 }
 
 func Execute() {
