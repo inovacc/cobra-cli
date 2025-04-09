@@ -55,7 +55,7 @@ func init() {
 	viper.SetDefault("license", "none")
 	//viper.SetDefault("useViper", false)
 
-	rootCmd.AddCommand(addCmd)
+	//rootCmd.AddCommand(addCmd)
 	rootCmd.AddCommand(initCmd)
 }
 

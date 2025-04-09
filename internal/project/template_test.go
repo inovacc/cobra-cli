@@ -1,29 +1,22 @@
 package project
 
-import (
-	"github.com/spf13/afero"
-	"github.com/spf13/viper"
-	"os"
-	"testing"
-)
-
-func TestMain(m *testing.M) {
-	// Set up viper defaults
-	viper.SetDefault("author", "NAME HERE <EMAIL ADDRESS>")
-	viper.SetDefault("license", "none")
-	viper.SetDefault("projectName", "testApp")
-
-	afs = afero.NewMemMapFs()
-
-	// Run the tests
-	code := m.Run()
-
-	// Clean up
-	viper.Reset()
-
-	os.Exit(code)
-}
-
+//func TestMain(m *testing.M) {
+//	// Set up viper defaults
+//	viper.SetDefault("author", "NAME HERE <EMAIL ADDRESS>")
+//	viper.SetDefault("license", "none")
+//	viper.SetDefault("projectName", "testApp")
+//
+//	afs = afero.NewMemMapFs()
+//
+//	// Run the tests
+//	code := m.Run()
+//
+//	// Clean up
+//	viper.Reset()
+//
+//	os.Exit(code)
+//}
+//
 //func TestLicenseTemplate(t *testing.T) {
 //	if err := licenseTemplate(afs, "LICENSE"); err != nil {
 //		t.Errorf("Error creating license template: %v", err)
@@ -56,7 +49,7 @@ func TestMain(m *testing.M) {
 //		t.Errorf("Error reading root file: %v", err)
 //	}
 //
-//	goldenFile, err := os.ReadFile("testdata/root_none.go.golden")
+//	goldenFile, err := os.ReadFile("testdata/root_none.golden")
 //	if err != nil {
 //		t.Errorf("Error reading golden file: %v", err)
 //	}
@@ -80,7 +73,7 @@ func TestMain(m *testing.M) {
 //		t.Errorf("Error reading main file: %v", err)
 //	}
 //
-//	goldenFile, err := os.ReadFile("testdata/main_none.go.golden")
+//	goldenFile, err := os.ReadFile("testdata/main_none.golden")
 //	if err != nil {
 //		t.Errorf("Error reading golden file: %v", err)
 //	}
@@ -109,7 +102,7 @@ func TestMain(m *testing.M) {
 //		t.Errorf("Error reading add command file: %v", err)
 //	}
 //
-//	goldenFile, err := os.ReadFile("testdata/add_command_none.go.golden")
+//	goldenFile, err := os.ReadFile("testdata/add_command_none.golden")
 //	if err != nil {
 //		t.Errorf("Error reading golden file: %v", err)
 //	}

@@ -1,8 +1,8 @@
 package main
 
 import (
+	"github.com/acme/myproject/cmd"
 	_ "go.uber.org/automaxprocs"
-	"myproject/cmd"
 )
 
 func main() {

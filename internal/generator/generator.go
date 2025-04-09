@@ -2,15 +2,62 @@ package generator
 
 import (
 	"embed"
+	"errors"
 	"fmt"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
+	"os"
+	"path"
 	"path/filepath"
 	"text/template"
 )
 
 //go:embed tpl/*.tmpl
 var templates embed.FS
+
+type Command struct {
+	CmdName   string
+	CmdParent string
+	*Project
+}
+
+type Project struct {
+	PkgName      string
+	AbsolutePath string
+	AppName      string
+	Legal        *License
+}
+
+func NewProject(args []string) (*Project, error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(args) > 0 {
+		if args[0] != "." {
+			wd = filepath.Join(wd, args[0])
+		}
+	}
+
+	return &Project{
+		AbsolutePath: wd,
+		PkgName:      getModImportPath(),
+		AppName:      path.Base(wd),
+	}, nil
+}
+
+func (p *Project) SetPkgName(value string) {
+	p.PkgName = value
+}
+
+func (p *Project) SetAppName(value string) {
+	p.AppName = value
+}
+
+func (p *Project) SetAbsolutePath(value string) {
+	p.AbsolutePath = value
+}
 
 type Generator struct {
 	afs       afero.Fs
@@ -19,46 +66,20 @@ type Generator struct {
 	project   *Project
 }
 
-func NewGenerator(fs afero.Fs, pkgName, appName string) (*Generator, error) {
-	exists, err := afero.Exists(fs, "go.mod")
-	if err != nil {
-		return nil, err
-	}
-
-	if !exists {
-		file, err := fs.Create("go.mod")
-		if err != nil {
-			return nil, fmt.Errorf("error creating go.mod file %v", err)
-		}
-		defer func(mainFile afero.File) {
-			if err := mainFile.Close(); err != nil {
-				cobra.CheckErr(err)
-			}
-		}(file)
-
-		if _, err := file.WriteString("module github.com/acme/myproject\n\ngo 1.24"); err != nil {
-			return nil, fmt.Errorf("error writing to go.mod file %v", err)
-		}
-	}
-
-	file, err := fs.Open("go.mod")
-	if err != nil {
-		return nil, fmt.Errorf("error opening go.mod file %v", err)
-	}
-
+func NewGenerator(fs afero.Fs, project *Project) (*Generator, error) {
 	return &Generator{
 		afs:       fs,
 		templates: templates,
 		project: &Project{
-			PkgName:      pkgName,
-			AbsolutePath: filepath.Dir(file.Name()),
-			AppName:      appName,
+			PkgName:      project.PkgName,
+			AbsolutePath: project.AbsolutePath,
+			AppName:      project.AppName,
 		},
 	}, nil
 }
 
-func (g *Generator) SetLicense(name string) error {
-	license, err := newLicense(name, templates)
+func (g *Generator) SetLicense() error {
+	license, err := newLicense(templates)
 	if err != nil {
 		return err
 	}
@@ -73,6 +94,54 @@ type Content struct {
 	FilePath        string
 	TemplateContent string
 	Data            any
+}
+
+func (g *Generator) GetProjectPath() string {
+	return g.project.AbsolutePath
+}
+
+// CreateProject sets up the project structure and files.
+func (g *Generator) CreateProject() error {
+	if g.project.Legal == nil {
+		return errors.New("no legal project")
+	}
+
+	// Ensure base directory exists
+	if _, err := g.afs.Stat(g.project.AbsolutePath); err != nil {
+		if err := g.afs.MkdirAll(g.project.AbsolutePath, 0754); err != nil {
+			return err
+		}
+	}
+
+	if err := g.renderTemplate(g.getFileContentLicense()); err != nil {
+		return err
+	}
+
+	if err := g.renderTemplate(g.getFileContentMain()); err != nil {
+		return err
+	}
+
+	if err := g.renderTemplate(g.getFileContentRoot()); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// AddCommandProject sets up the project structure and files for a new command.
+func (g *Generator) AddCommandProject() error {
+	// Ensure base directory exists
+	if _, err := g.afs.Stat(g.project.AbsolutePath); err != nil {
+		if err := g.afs.MkdirAll(g.project.AbsolutePath, 0754); err != nil {
+			return err
+		}
+	}
+
+	if err := g.renderTemplate(g.getFileContentRoot()); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (g *Generator) getFileContentMain() (Content, error) {
@@ -117,48 +186,58 @@ func (g *Generator) getFileContentLicense() (Content, error) {
 	return Content{Dirty: true}, nil
 }
 
-// CreateProject sets up the project structure and files.
-func (g *Generator) CreateProject() error {
-	// Ensure base directory exists
-	if _, err := g.afs.Stat(g.project.AbsolutePath); err != nil {
-		if err := g.afs.MkdirAll(g.project.AbsolutePath, 0754); err != nil {
-			return err
+func (g *Generator) getFileContentRoot() (Content, error) {
+	rootPath := fmt.Sprintf("%s/cmd", g.project.AbsolutePath)
+	if _, err := g.afs.Stat(rootPath); err != nil {
+		if err := g.afs.MkdirAll(rootPath, 0751); err != nil {
+			return Content{Dirty: true}, err
 		}
 	}
 
-	if err := g.renderTemplate(g.getFileContentLicense()); err != nil {
-		return err
+	templateName := "tpl/root.tmpl"
+
+	if g.none {
+		templateName = "tpl/root_none.tmpl"
 	}
 
-	if err := g.renderTemplate(g.getFileContentMain()); err != nil {
-		return err
+	data, err := g.templates.ReadFile(templateName)
+	if err != nil {
+		return Content{Dirty: true}, err
 	}
 
-	//filesMap["main"] = mainContent
-	//filesMap["root"] = fmt.Sprintf("%s/cmd/root.go", g.project.AbsolutePath)
-	//filesMap["license"] = fmt.Sprintf("%s/LICENSE", g.project.AbsolutePath)
+	return Content{
+		Name:            "root",
+		FilePath:        fmt.Sprintf("%s/cmd/root.go", g.project.AbsolutePath),
+		TemplateContent: string(data),
+		Data:            g.project,
+	}, nil
+}
 
-	// Ensure /cmd directory exists
-	//if _, err := g.afs.Stat(filesMap["root"]); err != nil {
-	//	if err := g.afs.MkdirAll(filesMap["root"], 0751); err != nil {
-	//		return err
-	//	}
-	//}
+func (g *Generator) getFileContentSub() (Content, error) {
+	subPath := fmt.Sprintf("%s/cmd/%s.go", g.project.AbsolutePath, g.project.AppName)
+	if _, err := g.afs.Stat(subPath); err != nil {
+		if err := g.afs.MkdirAll(subPath, 0751); err != nil {
+			return Content{Dirty: true}, err
+		}
+	}
 
-	//if err := mainTemplate(filesMap["main"] , g); err != nil {
-	//	return err
-	//}
-	//
-	//// Create cmd/root.go
-	//if err := rootTemplate(filesMap["root"], g); err != nil {
-	//	return err
-	//}
-	//
-	//if err := licenseTemplate( filesMap["license"]); err != nil {
-	//	return err
-	//}
+	templateName := "tpl/add_command.tmpl"
 
-	return nil
+	if g.none {
+		templateName = "tpl/add_command_none.tmpl"
+	}
+
+	data, err := g.templates.ReadFile(templateName)
+	if err != nil {
+		return Content{Dirty: true}, err
+	}
+
+	return Content{
+		Name:            "add_command", // from input command
+		FilePath:        subPath,
+		TemplateContent: string(data),
+		Data:            g.project,
+	}, nil
 }
 
 func (g *Generator) renderTemplate(content Content, err error) error {
@@ -186,27 +265,3 @@ func (g *Generator) renderTemplate(content Content, err error) error {
 	}
 	return nil
 }
-
-//
-//func mainTemplate(afs afero.Fs, filename string, data any, none bool) error {
-//	return renderTemplate(afs, "main", filename, "main.tmpl", data, none)
-//}
-//
-//func rootTemplate(afs afero.Fs, filename string, data any, none bool) error {
-//	return renderTemplate(afs, "root", filename, "root.tmpl", data, none)
-//}
-//
-//func addCommandTemplate(afs afero.Fs, filename string, data any, none bool) error {
-//	return renderTemplate(afs, "sub", filename, "add_command.tmpl", data, none)
-//}
-//
-//func licenseTemplate(afs afero.Fs, filename string) error {
-//	userLicense := viper.GetString("license")
-//	license := findLicense(userLicense)
-//	if license.code != "none" {
-//		if err := renderTemplate(afs, "license", filename, license.licensePath, license); err != nil {
-//			return err
-//		}
-//	}
-//	return nil
-//}

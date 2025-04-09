@@ -16,7 +16,7 @@ type License struct {
 	Copyright       string   // Copyright line
 }
 
-func newLicense(name string, templates embed.FS) (*License, error) {
+func newLicense(templates embed.FS) (*License, error) {
 	year := viper.GetString("year")
 	if year == "" {
 		year = time.Now().Format("2006")
@@ -65,7 +65,7 @@ func newLicense(name string, templates embed.FS) (*License, error) {
 		},
 	}
 
-	def, ok := licenseDefinitions[name]
+	def, ok := licenseDefinitions[viper.GetString("license")]
 	if !ok {
 		def = &License{
 			code:            "none",
