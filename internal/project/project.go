@@ -242,7 +242,7 @@ func (g *Generator) getFileContentSub() (Content, error) {
 		FilePath:        subPath,
 		TemplateContent: string(data),
 		Data: Command{
-			CmdParent: g.project.AppName,
+			CmdParent: "rootCmd",
 			CmdName:   g.validateCmdName(g.project.Args[0]),
 			Project:   g.project,
 		},

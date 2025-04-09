@@ -35,5 +35,5 @@ to quickly create a Cobra application.`,
 }
 
 func init() {
-	.AddCommand(serviceCmd)
+	rootCmd.AddCommand(serviceCmd)
 }
