@@ -3,6 +3,7 @@ package project
 import (
 	"bufio"
 	"bytes"
+	"crypto/md5"
 	"embed"
 	"encoding/json"
 	"errors"
@@ -29,62 +30,106 @@ var templates embed.FS
 var srcPaths []string
 
 func init() {
-	// Initialize srcPaths.
-	envGoPath := os.Getenv("GOPATH")
-	goPaths := filepath.SplitList(envGoPath)
-	if len(goPaths) == 0 {
-		// Adapted from https://github.com/Masterminds/glide/pull/798/files.
-		// As of Go 1.8 the GOPATH is no longer required to be set. Instead, there
-		// is a default value. If there is no GOPATH check for the default value.
-		// Note, checking the GOPATH first to avoid invoking the go toolchain if
-		// possible.
+	cobra.CheckErr(InitSrcPaths())
+}
 
-		goExecutable := os.Getenv("COBRA_GO_EXECUTABLE")
-		if len(goExecutable) <= 0 {
-			goExecutable = "go"
+func detectGoPaths() ([]string, error) {
+	goPath := os.Getenv("GOPATH")
+	if goPath != "" {
+		return filepath.SplitList(goPath), nil
+	}
+
+	goExecutable := os.Getenv("COBRA_GO_EXECUTABLE")
+	if goExecutable == "" {
+		goExecutable = "go"
+	}
+
+	out, err := exec.Command(goExecutable, "env", "GOPATH").Output()
+	if err != nil {
+		return nil, fmt.Errorf("could not detect GOPATH: %w", err)
+	}
+
+	paths := filepath.SplitList(strings.TrimSpace(string(out)))
+	if len(paths) == 0 {
+		return nil, errors.New("$GOPATH is not set or could not be determined")
+	}
+
+	return paths, nil
+}
+
+func buildSrcPaths(goPaths []string) []string {
+	srcs := make([]string, 0, len(goPaths))
+	for _, gp := range goPaths {
+		srcs = append(srcs, filepath.Join(gp, "src"))
+	}
+	return srcs
+}
+
+func InitSrcPaths() error {
+	goPaths, err := detectGoPaths()
+	if err != nil {
+		return err
+	}
+	srcPaths = buildSrcPaths(goPaths)
+	return nil
+}
+
+func runDiff(pathA, pathB string) (string, error) {
+	diffPath, err := exec.LookPath("diff")
+	if err != nil {
+		return "", nil // diff no disponible
+	}
+
+	var output bytes.Buffer
+	cmd := exec.Command(diffPath, "-u", "--strip-trailing-cr", pathA, pathB)
+	cmd.Stdout = &output
+	cmd.Stderr = &output
+
+	if err := cmd.Run(); err != nil {
+		return output.String(), nil // ignora error de diff, lo importante es la salida
+	}
+	return output.String(), nil
+}
+
+func compareContent(contentA, contentB []byte) error {
+	if !bytes.Equal(ensureLF(contentA), ensureLF(contentB)) {
+		return errors.New("byte slices differ")
+	}
+	return nil
+}
+
+func validateCmdName(args []string) string {
+	var source string
+	if len(args) > 0 {
+		source = args[0]
+	}
+
+	var sb strings.Builder
+	capitalize := false
+
+	for i := 0; i < len(source); i++ {
+		ch := source[i]
+		if ch == '-' || ch == '_' {
+			capitalize = true
+			continue
 		}
-
-		out, err := exec.Command(goExecutable, "env", "GOPATH").Output()
-		cobra.CheckErr(err)
-
-		toolchainGoPath := strings.TrimSpace(string(out))
-		goPaths = filepath.SplitList(toolchainGoPath)
-		if len(goPaths) == 0 {
-			cobra.CheckErr("$GOPATH is not set")
+		if capitalize {
+			sb.WriteByte(byte(unicode.ToUpper(rune(ch))))
+			capitalize = false
+		} else {
+			sb.WriteByte(ch)
 		}
 	}
-	srcPaths = make([]string, 0, len(goPaths))
-	for _, goPath := range goPaths {
-		srcPaths = append(srcPaths, filepath.Join(goPath, "src"))
+
+	if sb.Len() == 0 {
+		return source
 	}
+	return sb.String()
 }
 
 // ensureLF converts any \r\n to \n
 func ensureLF(content []byte) []byte {
 	return bytes.ReplaceAll(content, []byte("\r\n"), []byte("\n"))
-}
-
-func CompareContent(contentA, contentB []byte) error {
-	if !bytes.Equal(ensureLF(contentA), ensureLF(contentB)) {
-		output := new(bytes.Buffer)
-		_, _ = fmt.Fprintf(output, "Contents are not equal!\n\n")
-
-		diffPath, err := exec.LookPath("diff")
-		if err != nil {
-			// Don't execute diff if it can't be found.
-			return nil
-		}
-		diffCmd := exec.Command(diffPath, "-u", "--strip-trailing-cr")
-		diffCmd.Stdin = bytes.NewReader(contentA)
-		diffCmd.Stdout = output
-		diffCmd.Stderr = output
-
-		if err := diffCmd.Run(); err != nil {
-			_, _ = fmt.Fprintf(output, "\n%s", err.Error())
-		}
-		return errors.New(output.String())
-	}
-	return nil
 }
 
 func getModImportPath() string {
@@ -148,7 +193,7 @@ type Project struct {
 	AbsolutePath string
 	AppName      string
 	CmdName      string
-	Legal        *License `json:"-" yaml:"-"`
+	Legal        *License //`json:"-" yaml:"-"`
 }
 
 func NewProject(args []string) (*Project, error) {
@@ -184,8 +229,9 @@ func (p *Project) SetAbsolutePath(value string) {
 }
 
 type Generator struct {
-	Afs       afero.Fs `json:"-" yaml:"-"`
-	Templates embed.FS `json:"-" yaml:"-"`
+	Afs       afero.Fs            `json:"-" yaml:"-"`
+	Templates embed.FS            `json:"-" yaml:"-"`
+	Licenses  map[string]*License `json:"licenses" yaml:"licenses"`
 	None      bool
 	Project   *Project
 	Content   []Content
@@ -197,16 +243,18 @@ func NewProjectGenerator(fs afero.Fs, project *Project) (*Generator, error) {
 	return &Generator{
 		Afs:       fs,
 		Templates: templates,
+		Licenses:  contentLicenses(templates),
 		Project:   project,
 		Content:   []Content{},
 	}, nil
 }
 
 func (g *Generator) SetLicense() error {
-	license, err := newLicense(templates)
-	if err != nil {
-		return err
+	license, ok := g.Licenses[viper.GetString("license")]
+	if !ok {
+		return errors.New("license file not found in templates")
 	}
+
 	g.Project.Legal = license
 	g.None = g.Project.Legal.Code == "None"
 	return nil
@@ -235,15 +283,22 @@ func (g *Generator) CreateProject() error {
 		return errors.New("no legal Project")
 	}
 
-	if err := g.getFileContentLicense(); err != nil {
-		return err
-	}
-
 	// Ensure base directory exists
-	if !stat(g.Afs, g.Project.PkgName) {
-		if err := g.Afs.MkdirAll(g.Project.PkgName, 0754); err != nil {
+	if !stat(g.Afs, g.Project.AbsolutePath) {
+		if err := g.Afs.MkdirAll(g.Project.AbsolutePath, 0754); err != nil {
 			return err
 		}
+	}
+
+	rootPath := filepath.Join(g.Project.AbsolutePath, "cmd")
+	if !stat(g.Afs, rootPath) {
+		if err := g.Afs.MkdirAll(rootPath, 0751); err != nil {
+			return err
+		}
+	}
+
+	if err := g.getFileContentLicense(); err != nil {
+		return err
 	}
 
 	if err := g.getFileContentMain(); err != nil {
@@ -324,15 +379,13 @@ func (g *Generator) getFileContentMain() error {
 	content.TemplateContent = string(data)
 	content.Data = g.Project
 	content.Dirty = false
-
-	g.Content = append(g.Content, content)
 	return nil
 }
 
 func (g *Generator) getFileContentLicense() error {
 	content := Content{
 		Name:             "license",
-		FilePath:         fmt.Sprintf("%s/LICENSE", g.Project.PkgName),
+		FilePath:         fmt.Sprintf("%s/LICENSE", g.Project.AbsolutePath),
 		TemplateFilePath: fmt.Sprintf("tpl/license_%s.tmpl", g.Project.Legal.Code),
 		Dirty:            true,
 	}
@@ -359,7 +412,7 @@ func (g *Generator) getFileContentRoot() error {
 	content := Content{
 		Name:             "root",
 		TemplateFilePath: "tpl/root.tmpl",
-		FilePath:         fmt.Sprintf("%s/cmd", g.Project.PkgName),
+		FilePath:         fmt.Sprintf("%s/cmd/root.go", g.Project.AbsolutePath),
 		Dirty:            true,
 	}
 
@@ -371,14 +424,6 @@ func (g *Generator) getFileContentRoot() error {
 		g.Content = append(g.Content, content)
 	}()
 
-	if !stat(g.Afs, content.FilePath) {
-		if err := g.Afs.MkdirAll(content.FilePath, 0751); err != nil {
-			return err
-		}
-	}
-
-	content.FilePath = fmt.Sprintf("%s/root.go", g.Project.PkgName)
-
 	data, err := g.Templates.ReadFile(content.TemplateFilePath)
 	if err != nil {
 		return err
@@ -387,7 +432,6 @@ func (g *Generator) getFileContentRoot() error {
 	content.TemplateContent = string(data)
 	content.Data = g.Project
 	content.Dirty = false
-
 	return nil
 }
 
@@ -549,57 +593,28 @@ func stat(afs afero.Fs, namePath string) bool {
 	return true
 }
 
-func validateCmdName(args []string) string {
-	var source string
-	if len(args) > 0 {
-		source = args[0]
+func hashLicenseContent(templates embed.FS, code string) string {
+	data, err := templates.ReadFile(fmt.Sprintf("tpl/license_%s.tmpl", code))
+	if err != nil {
+		return "invalid hash"
 	}
-	i := 0
-	l := len(args)
-	// The output is initialized on demand, then first dash or underscore
-	// occurs.
-	var output string
+	return fmt.Sprintf("%X", md5.Sum(data))
+}
 
-	for i < l {
-		if source[i] == '-' || source[i] == '_' {
-			if output == "" {
-				output = source[:i]
-			}
-
-			// If it's last rune, and it's dash or underscore,
-			// don't add it output and break the loop.
-			if i == l-1 {
-				break
-			}
-
-			// If next character is dash or underscore,
-			// just skip the current character.
-			if source[i+1] == '-' || source[i+1] == '_' {
-				i++
-				continue
-			}
-
-			// If the current character is dash or underscore,
-			// upper next letter and add to output.
-			output += string(unicode.ToUpper(rune(source[i+1])))
-			// We know what args[i] is dash or underscore and args[i+1] is
-			// uppered character, so make i = i+2.
-			i += 2
-			continue
-		}
-
-		// If the current character isn't dash or underscore,
-		// just add it.
-		if output != "" {
-			output += args[i]
-		}
-		i++
+func getLicenseHeader(templates embed.FS, code string) string {
+	data, err := templates.ReadFile(fmt.Sprintf("tpl/header_%s.tmpl", code))
+	if err != nil {
+		return "No header license content"
 	}
+	return string(data)
+}
 
-	if output == "" {
-		return source // args is initially valid name.
+func getLicenseBody(templates embed.FS, code string) string {
+	data, err := templates.ReadFile(fmt.Sprintf("tpl/license_%s.tmpl", code))
+	if err != nil {
+		return "No license content"
 	}
-	return output
+	return string(data)
 }
 
 type License struct {
@@ -609,95 +624,93 @@ type License struct {
 	Header          string   // License header for source files
 	Body            string   // License body
 	Copyright       string   // Copyright line
+	HashLicense     string   // HashLicense for quick search
 }
 
-func newLicense(templates embed.FS) (*License, error) {
+func contentLicenses(templates embed.FS) map[string]*License {
 	year := viper.GetString("year")
 	if year == "" {
 		year = time.Now().Format("2006")
 	}
 
-	licenseDefinitions := map[string]*License{
+	return map[string]*License{
 		"apache2": {
 			Code:            "apache_2",
 			Name:            "Apache 2.0",
 			PossibleMatches: []string{"Apache-2.0", "apache", "apache20", "apache 2.0", "apache2.0", "apache-2.0"},
+			Header:          getLicenseHeader(templates, "apache_2"),
+			Body:            getLicenseBody(templates, "apache_2"),
+			Copyright:       fmt.Sprintf("Copyright © %s %s", year, viper.GetString("author")),
+			HashLicense:     hashLicenseContent(templates, "apache_2"),
 		},
 		"mit": {
 			Code:            "mit",
 			Name:            "MIT License",
 			PossibleMatches: []string{"MIT", "mit"},
+			Header:          getLicenseHeader(templates, "mit"),
+			Body:            getLicenseBody(templates, "mit"),
+			Copyright:       fmt.Sprintf("Copyright © %s %s", year, viper.GetString("author")),
+			HashLicense:     hashLicenseContent(templates, "mit"),
 		},
-		"bsd-3": {
+		"bsd3": {
 			Code:            "bsd_clause_3",
 			Name:            "NewBSD",
 			PossibleMatches: []string{"BSD-3-Clause", "bsd", "newbsd", "3 clause bsd", "3-clause bsd"},
+			Header:          getLicenseHeader(templates, "bsd_clause_3"),
+			Body:            getLicenseBody(templates, "bsd_clause_3"),
+			Copyright:       fmt.Sprintf("Copyright © %s %s", year, viper.GetString("author")),
+			HashLicense:     hashLicenseContent(templates, "bsd_clause_3"),
 		},
-		"bsd-2": {
+		"bsd2": {
 			Code:            "bsd_clause_2",
 			Name:            "Simplified BSD License",
 			PossibleMatches: []string{"BSD-2-Clause", "freebsd", "simpbsd", "simple bsd", "2-clause bsd", "2 clause bsd", "simplified bsd license"},
+			Header:          getLicenseHeader(templates, "bsd_clause_2"),
+			Body:            getLicenseBody(templates, "bsd_clause_2"),
+			Copyright:       fmt.Sprintf("Copyright © %s %s", year, viper.GetString("author")),
+			HashLicense:     hashLicenseContent(templates, "bsd_clause_2"),
 		},
-		"gpl-2": {
+		"gpl2": {
 			Code:            "gpl_2",
 			Name:            "GNU General Public License 2.0",
 			PossibleMatches: []string{"GPL-2.0", "gpl2", "gnu gpl2", "gplv2"},
+			Header:          getLicenseHeader(templates, "gpl_2"),
+			Body:            getLicenseBody(templates, "gpl_2"),
+			Copyright:       fmt.Sprintf("Copyright © %s %s", year, viper.GetString("author")),
+			HashLicense:     hashLicenseContent(templates, "gpl_2"),
 		},
-		"gpl-3": {
+		"gpl3": {
 			Code:            "gpl_3",
 			Name:            "GNU General Public License 3.0",
 			PossibleMatches: []string{"GPL-3.0", "gpl3", "gplv3", "gpl", "gnu gpl3", "gnu gpl"},
+			Header:          getLicenseHeader(templates, "gpl_3"),
+			Body:            getLicenseBody(templates, "gpl_3"),
+			Copyright:       fmt.Sprintf("Copyright © %s %s", year, viper.GetString("author")),
+			HashLicense:     hashLicenseContent(templates, "gpl_3"),
 		},
 		"lgpl": {
 			Code:            "lgpl",
 			Name:            "GNU Lesser General Public License",
 			PossibleMatches: []string{"LGPL-3.0", "lgpl", "lesser gpl", "gnu lgpl"},
+			Header:          getLicenseHeader(templates, "lgpl"),
+			Body:            getLicenseBody(templates, "lgpl"),
+			Copyright:       fmt.Sprintf("Copyright © %s %s", year, viper.GetString("author")),
+			HashLicense:     hashLicenseContent(templates, "lgpl"),
 		},
 		"agpl": {
 			Code:            "agpl",
 			Name:            "GNU Affero General Public License",
 			PossibleMatches: []string{"AGPL-3.0", "agpl", "affero gpl", "gnu agpl"},
+			Header:          getLicenseHeader(templates, "agpl"),
+			Body:            getLicenseBody(templates, "agpl"),
+			Copyright:       fmt.Sprintf("Copyright © %s %s", year, viper.GetString("author")),
+			HashLicense:     hashLicenseContent(templates, "agpl"),
+		},
+		"none": {
+			Code:            "none",
+			Name:            "None License",
+			PossibleMatches: []string{"none", "false"},
+			Copyright:       fmt.Sprintf("Copyright © %s %s", year, viper.GetString("author")),
 		},
 	}
-
-	def, ok := licenseDefinitions[viper.GetString("license")]
-	if !ok {
-		def = &License{
-			Code:            "None",
-			Name:            "None",
-			PossibleMatches: []string{"None", "false"},
-		}
-	}
-
-	def.Copyright = fmt.Sprintf("Copyright © %s %s", year, viper.GetString("author"))
-
-	if def.Code != "None" {
-		if err := def.getLicenseHeader(templates); err != nil {
-			return nil, err
-		}
-
-		if err := def.getLicenseBody(templates); err != nil {
-			return nil, err
-		}
-	}
-
-	return def, nil
-}
-
-func (l *License) getLicenseHeader(templates embed.FS) error {
-	data, err := templates.ReadFile(fmt.Sprintf("tpl/header_%s.tmpl", l.Code))
-	if err != nil {
-		return err
-	}
-	l.Header = string(data)
-	return nil
-}
-
-func (l *License) getLicenseBody(templates embed.FS) error {
-	data, err := templates.ReadFile(fmt.Sprintf("tpl/license_%s.tmpl", l.Code))
-	if err != nil {
-		return err
-	}
-	l.Body = string(data)
-	return nil
 }

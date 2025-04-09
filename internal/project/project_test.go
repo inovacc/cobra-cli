@@ -12,7 +12,7 @@ var afs = afero.NewMemMapFs()
 
 func TestGenerateRoot(t *testing.T) {
 	viper.SetDefault("author", "NAME HERE <EMAIL ADDRESS>")
-	viper.SetDefault("license", "apache2")
+	viper.SetDefault("license", "mit")
 	viper.SetDefault("projectName", "testApp")
 	defer viper.Reset()
 
@@ -22,7 +22,7 @@ func TestGenerateRoot(t *testing.T) {
 	}
 
 	project.SetPkgName("github.com/acme/myproject")
-	project.SetAbsolutePath("github.com/acme")
+	//project.SetAbsolutePath("github.com/acme")
 
 	generator, err := NewProjectGenerator(afs, project)
 	if err != nil {
@@ -52,7 +52,7 @@ func TestGenerateRoot(t *testing.T) {
 				t.Fatalf("Error reading golden file: %v", err)
 			}
 
-			if err := CompareContent(data, goldenFile); err != nil {
+			if err := compareContent(data, goldenFile); err != nil {
 				t.Fatalf("Error comparing files: %v", err)
 			}
 		}
@@ -76,7 +76,7 @@ func TestGenerateRoot(t *testing.T) {
 			t.Fatalf("Error reading golden file: %v", err)
 		}
 
-		if err := CompareContent(data, goldenFile); err != nil {
+		if err := compareContent(data, goldenFile); err != nil {
 			t.Fatalf("Error comparing files: %v", err)
 		}
 	}
@@ -99,7 +99,7 @@ func TestGenerateRoot(t *testing.T) {
 			t.Fatalf("Error reading golden file: %v", err)
 		}
 
-		if err := CompareContent(data, goldenFile); err != nil {
+		if err := compareContent(data, goldenFile); err != nil {
 			t.Fatalf("Error comparing files: %v", err)
 		}
 	}
@@ -144,7 +144,7 @@ func TestGenerateSub(t *testing.T) {
 			t.Fatalf("Error reading golden file: %v", err)
 		}
 
-		if err := CompareContent(data, goldenFile); err != nil {
+		if err := compareContent(data, goldenFile); err != nil {
 			t.Fatalf("Error comparing files: %v", err)
 		}
 	}
