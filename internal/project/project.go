@@ -1,6 +1,7 @@
 package project
 
 import (
+	"bufio"
 	"embed"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"text/template"
 	"unicode"
@@ -321,6 +323,14 @@ func (g *Generator) findLicense() bool {
 
 			viper.Set("license", licenseCode)
 
+			// extract copyright from license
+			author, err := g.extractAuthorFromFile(fmt.Sprintf("%s/main.go", g.project.AbsolutePath))
+			if err != nil {
+				return false
+			}
+
+			viper.Set("author", author)
+
 			return g.SetLicense() == nil
 		}
 	}
@@ -375,4 +385,23 @@ func (g *Generator) validateCmdName(source string) string {
 		return source // source is initially valid name.
 	}
 	return output
+}
+
+func (g *Generator) extractAuthorFromFile(filePath string) (string, error) {
+	file, err := g.afs.Open(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	re := regexp.MustCompile(`^Copyright © \d{4}\s+`)
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if re.MatchString(line) {
+			return re.ReplaceAllString(line, ""), nil
+		}
+	}
+	return "", fmt.Errorf("no matching copyright line found")
 }
