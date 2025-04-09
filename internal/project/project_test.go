@@ -34,13 +34,13 @@ func TestGenerateRoot(t *testing.T) {
 	}
 
 	if err := generator.CreateProject(); err != nil {
-		t.Fatalf("Error creating project: %v", err)
+		t.Fatalf("Error creating Project: %v", err)
 	}
 
 	// Check if the LICENSE file was created
 	{
-		if !generator.none {
-			data, err := afero.ReadFile(afs, filepath.Join(generator.project.AbsolutePath, "LICENSE"))
+		if !generator.None {
+			data, err := afero.ReadFile(afs, filepath.Join(generator.Project.AbsolutePath, "LICENSE"))
 			if err != nil {
 				t.Fatalf("Error reading LICENSE file: %v", err)
 			}
@@ -60,14 +60,14 @@ func TestGenerateRoot(t *testing.T) {
 
 	// Check if the main.go file was created
 	{
-		data, err := afero.ReadFile(afs, filepath.Join(generator.project.AbsolutePath, "main.go"))
+		data, err := afero.ReadFile(afs, filepath.Join(generator.Project.AbsolutePath, "main.go"))
 		if err != nil {
 			t.Fatalf("Error reading main.go file: %v", err)
 		}
 
 		templateName := "testdata/main.go.golden"
 
-		if generator.none {
+		if generator.None {
 			templateName = "testdata/main_none.golden"
 		}
 
@@ -83,14 +83,14 @@ func TestGenerateRoot(t *testing.T) {
 
 	// Check if the cmd/root.go file was created
 	{
-		data, err := afero.ReadFile(afs, filepath.Join(generator.project.AbsolutePath, "cmd/root.go"))
+		data, err := afero.ReadFile(afs, filepath.Join(generator.Project.AbsolutePath, "cmd/root.go"))
 		if err != nil {
 			t.Fatalf("Error reading root.go file: %v", err)
 		}
 
 		templateName := "testdata/root.golden"
 
-		if generator.none {
+		if generator.None {
 			templateName = "testdata/root_none.golden"
 		}
 
@@ -128,14 +128,14 @@ func TestGenerateSub(t *testing.T) {
 
 	// Check if the cmd/service.go file was created
 	{
-		data, err := afero.ReadFile(afs, filepath.Join(generator.project.AbsolutePath, "cmd/service.go"))
+		data, err := afero.ReadFile(afs, filepath.Join(generator.Project.AbsolutePath, "cmd/service.go"))
 		if err != nil {
 			t.Fatalf("Error reading root.go file: %v", err)
 		}
 
 		templateName := "testdata/add_command.golden"
 
-		if generator.none {
+		if generator.None {
 			templateName = "testdata/add_command_none.golden"
 		}
 
