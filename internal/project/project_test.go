@@ -109,7 +109,7 @@ func TestGenerateSub(t *testing.T) {
 	viper.SetDefault("projectName", "testApp")
 	defer viper.Reset()
 
-	project, err := NewProject([]string{"myproject"})
+	project, err := NewProject([]string{"service"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,5 +124,28 @@ func TestGenerateSub(t *testing.T) {
 
 	if err := generator.AddCommandProject(); err != nil {
 		t.Fatalf("Error creating sub command: %v", err)
+	}
+
+	// Check if the cmd/service.go file was created
+	{
+		data, err := afero.ReadFile(afs, filepath.Join(generator.project.AbsolutePath, "cmd/service.go"))
+		if err != nil {
+			t.Fatalf("Error reading root.go file: %v", err)
+		}
+
+		templateName := "testdata/add_command.golden"
+
+		if generator.none {
+			templateName = "testdata/add_command_none.golden"
+		}
+
+		goldenFile, err := os.ReadFile(templateName)
+		if err != nil {
+			t.Fatalf("Error reading golden file: %v", err)
+		}
+
+		if err := CompareContent(data, goldenFile); err != nil {
+			t.Fatalf("Error comparing files: %v", err)
+		}
 	}
 }
