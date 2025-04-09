@@ -191,3 +191,7 @@ Copyright © 2020 Steve Francia <spf@spf13.com>
 This file is part of CLI application foo.
 */
 ```
+
+## Roadmap
+
+[] implement new project if no go.mod and .git exists

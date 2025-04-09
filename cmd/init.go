@@ -63,7 +63,13 @@ Cobra init must be run inside of a go module (please run "go mod init <MODNAME>"
 			cobra.CheckErr(projectGenerator.CreateProject())
 
 			cobra.CheckErr(project.GoGet("github.com/spf13/cobra"))
+			cobra.CheckErr(project.GoGet("github.com/google/uuid"))
+			cobra.CheckErr(project.GoGet("github.com/inovacc/logger"))
+			cobra.CheckErr(project.GoGet("github.com/spf13/afero"))
+			cobra.CheckErr(project.GoGet("github.com/spf13/viper"))
+			cobra.CheckErr(project.GoGet("gopkg.in/yaml.v3"))
 			cobra.CheckErr(project.GoGet("go.uber.org/automaxprocs"))
+
 			fmt.Printf("Your Cobra application is ready at\n%s\n", projectGenerator.GetProjectPath())
 		},
 	}

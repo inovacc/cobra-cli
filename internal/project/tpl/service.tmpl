@@ -1,0 +1,12 @@
+package service
+
+import (
+	"awesomeProject5DonedCobra/internal/config"
+	"github.com/spf13/cobra"
+)
+
+func Service(cmd *cobra.Command, args []string) error {
+	cfg := config.GetServiceConfig[*config.CustomConfig]()
+	cmd.Printf("hello %s", cfg.Username)
+	return nil
+}

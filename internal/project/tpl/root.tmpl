@@ -18,6 +18,13 @@ examples and usage of using your application. For example:
 Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
+    PreRunE: func(cmd *cobra.Command, args []string) error {
+        path, err := cmd.Flags().GetString("config")
+        if err != nil {
+            return err
+        }
+        return config.InitConfig(path, &config.CustomConfig{})
+    },
 	RunE: func(cmd *cobra.Command, args []string) error {
         path, err := cmd.Flags().GetString("config")
         if err != nil {
@@ -33,5 +40,7 @@ func Execute() {
 }
 
 func init() {
+    rootCmd.CompletionOptions.DisableDefaultCmd = true
+
 	rootCmd.Flags().StringP("config", "c", "config.yaml", "config file (default is config.yaml)")
 }

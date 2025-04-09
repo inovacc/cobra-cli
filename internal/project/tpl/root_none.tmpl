@@ -1,11 +1,14 @@
 package cmd
 
 import (
+	"awesomeProject5DonedCobra/internal/config"
+	"awesomeProject5DonedCobra/internal/service"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "{{ .AppName }}",
+	Use:   "awesomeProject5DonedCobra",
 	Short: "A brief description of your application",
 	Long: `A longer description that spans multiple lines and likely contains
 examples and usage of using your application. For example:
@@ -13,14 +16,7 @@ examples and usage of using your application. For example:
 Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-        path, err := cmd.Flags().GetString("config")
-        if err != nil {
-            return err
-        }
-        cmd.Println("default config called from root is:", path)
-        return nil
-    },
+	RunE: service.Service,
 }
 
 func Execute() {
@@ -28,5 +24,13 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.Flags().StringP("config", "c", "config.yaml", "config file (default is config.yaml)")
+	cobra.OnInitialize(initConfig)
+	rootCmd.CompletionOptions.DisableDefaultCmd = true
+
+	rootCmd.PersistentFlags().StringP("config", "c", "config.yaml", "config file (default is config.yaml)")
+	cobra.CheckErr(viper.BindPFlag("config", rootCmd.PersistentFlags().Lookup("config")))
+}
+
+func initConfig() {
+	cobra.CheckErr(config.InitConfig(&config.CustomConfig{}))
 }
