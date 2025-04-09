@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/acme/myproject/cmd"
-	_ "go.uber.org/automaxprocs"
+	_ "go.uber.org/automaxprocs/maxprocs"
 )
 
 func main() {
