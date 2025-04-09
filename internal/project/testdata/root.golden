@@ -33,7 +33,7 @@ to quickly create a Cobra application.`,
         if err != nil {
             return err
         }
-        cmd.Println(path)
+        cmd.Println("default config called from root is:", path)
         return nil
     },
 }
