@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+	"unicode"
 )
 
 //go:embed tpl/*.tmpl
@@ -24,6 +25,7 @@ type Command struct {
 }
 
 type Project struct {
+	Args         []string
 	PkgName      string
 	AbsolutePath string
 	AppName      string
@@ -43,6 +45,7 @@ func NewProject(args []string) (*Project, error) {
 	}
 
 	return &Project{
+		Args:         args,
 		AbsolutePath: wd,
 		PkgName:      getModImportPath(),
 		AppName:      path.Base(wd),
@@ -72,11 +75,7 @@ func NewProjectGenerator(fs afero.Fs, project *Project) (*Generator, error) {
 	return &Generator{
 		afs:       fs,
 		templates: templates,
-		project: &Project{
-			PkgName:      project.PkgName,
-			AbsolutePath: project.AbsolutePath,
-			AppName:      project.AppName,
-		},
+		project:   project,
 	}, nil
 }
 
@@ -134,11 +133,6 @@ func (g *Generator) CreateProject() error {
 func (g *Generator) AddCommandProject() error {
 	if !g.findLicense() {
 		return errors.New("no legal project")
-	}
-
-	command := &Command{
-		CmdName: project.ValidateCmdName(args[0]),
-		Project: g.project,
 	}
 
 	// Ensure base directory exists
@@ -247,7 +241,10 @@ func (g *Generator) getFileContentSub() (Content, error) {
 		Name:            "add_command", // from input command
 		FilePath:        subPath,
 		TemplateContent: string(data),
-		Data:            g.project,
+		Data: Command{
+			CmdName: g.validateCmdName(g.project.Args[0]),
+			Project: g.project,
+		},
 	}, nil
 }
 
@@ -328,4 +325,53 @@ func (g *Generator) findLicense() bool {
 	}
 
 	return true
+}
+
+func (g *Generator) validateCmdName(source string) string {
+	i := 0
+	l := len(source)
+	// The output is initialized on demand, then first dash or underscore
+	// occurs.
+	var output string
+
+	for i < l {
+		if source[i] == '-' || source[i] == '_' {
+			if output == "" {
+				output = source[:i]
+			}
+
+			// If it's last rune, and it's dash or underscore,
+			// don't add it output and break the loop.
+			if i == l-1 {
+				break
+			}
+
+			// If next character is dash or underscore,
+			// just skip the current character.
+			if source[i+1] == '-' || source[i+1] == '_' {
+				i++
+				continue
+			}
+
+			// If the current character is dash or underscore,
+			// upper next letter and add to output.
+			output += string(unicode.ToUpper(rune(source[i+1])))
+			// We know, what source[i] is dash or underscore and source[i+1] is
+			// uppered character, so make i = i+2.
+			i += 2
+			continue
+		}
+
+		// If the current character isn't dash or underscore,
+		// just add it.
+		if output != "" {
+			output += string(source[i])
+		}
+		i++
+	}
+
+	if output == "" {
+		return source // source is initially valid name.
+	}
+	return output
 }
