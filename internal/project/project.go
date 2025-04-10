@@ -164,12 +164,13 @@ func (p *Project) SetAbsolutePath(value string) {
 }
 
 type Generator struct {
-	Afs       afero.Fs            `json:"-" yaml:"-"`
-	Templates embed.FS            `json:"-" yaml:"-"`
-	Licenses  map[string]*License `json:"licenses" yaml:"licenses"`
-	None      bool
-	Project   *Project
-	Content   []Content
+	Afs        afero.Fs            `json:"-" yaml:"-"`
+	Templates  embed.FS            `json:"-" yaml:"-"`
+	Licenses   map[string]*License `json:"licenses" yaml:"licenses"`
+	None       bool
+	Project    *Project
+	Content    []Content
+	NewProject bool
 }
 
 func NewProjectGenerator(fs afero.Fs, project *Project) (*Generator, error) {
@@ -181,11 +182,12 @@ func NewProjectGenerator(fs afero.Fs, project *Project) (*Generator, error) {
 	}
 
 	return &Generator{
-		None:      project.Legal.Code == "none",
-		Afs:       fs,
-		Templates: templates,
-		Project:   project,
-		Content:   []Content{},
+		None:       project.Legal.Code == "none",
+		Afs:        fs,
+		Templates:  templates,
+		Project:    project,
+		Content:    []Content{},
+		NewProject: viper.GetBool("newProject"),
 	}, nil
 }
 
@@ -250,7 +252,7 @@ func (g *Generator) CreateProject() error {
 		}
 	}
 
-	configPath := filepath.Join(g.Project.AbsolutePath, "config")
+	configPath := filepath.Join(g.Project.AbsolutePath, "internal", "config")
 	if !stat(g.Afs, configPath) {
 		if err := g.Afs.MkdirAll(configPath, 0751); err != nil {
 			return err

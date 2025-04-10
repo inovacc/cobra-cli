@@ -17,6 +17,7 @@ import (
 	"os"
 
 	"github.com/inovacc/cobra-cli/cmd"
+	_ "go.uber.org/automaxprocs/maxprocs"
 )
 
 func main() {
