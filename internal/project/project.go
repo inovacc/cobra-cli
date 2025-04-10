@@ -114,6 +114,37 @@ func modInfoJSON(args ...string) []byte {
 	return out
 }
 
+func gitInit() error {
+	cmd := exec.Command("git", "init")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+func goModInitWithName(modName string) error {
+	if _, err := os.Stat("go.mod"); err == nil {
+		fmt.Println("go.mod already exists, skipping `go mod init`.")
+		return nil
+	}
+	cmd := exec.Command("go", "mod", "init", modName)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+func goModInit() error {
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	modName := path.Base(wd)
+	cmd := exec.Command("go", "mod", "init", modName)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
 type Command struct {
 	CmdName          string
 	CmdParent        string
@@ -128,6 +159,7 @@ type Project struct {
 	AppName      string
 	CmdName      string
 	Legal        *License
+	NewProject   bool
 }
 
 func NewProject(args []string) (*Project, error) {
@@ -164,13 +196,12 @@ func (p *Project) SetAbsolutePath(value string) {
 }
 
 type Generator struct {
-	Afs        afero.Fs            `json:"-" yaml:"-"`
-	Templates  embed.FS            `json:"-" yaml:"-"`
-	Licenses   map[string]*License `json:"licenses" yaml:"licenses"`
-	None       bool
-	Project    *Project
-	Content    []Content
-	NewProject bool
+	Afs       afero.Fs            `json:"-" yaml:"-"`
+	Templates embed.FS            `json:"-" yaml:"-"`
+	Licenses  map[string]*License `json:"licenses" yaml:"licenses"`
+	None      bool
+	Project   *Project
+	Content   []Content
 }
 
 func NewProjectGenerator(fs afero.Fs, project *Project) (*Generator, error) {
@@ -182,12 +213,11 @@ func NewProjectGenerator(fs afero.Fs, project *Project) (*Generator, error) {
 	}
 
 	return &Generator{
-		None:       project.Legal.Code == "none",
-		Afs:        fs,
-		Templates:  templates,
-		Project:    project,
-		Content:    []Content{},
-		NewProject: viper.GetBool("newProject"),
+		None:      project.Legal.Code == "none",
+		Afs:       fs,
+		Templates: templates,
+		Project:   project,
+		Content:   []Content{},
 	}, nil
 }
 
@@ -229,6 +259,16 @@ func (g *Generator) PrepareModels() error {
 		return err
 	}
 
+	if g.Project.NewProject {
+		if err := g.getFileContentIgnore(); err != nil {
+			return err
+		}
+
+		if err := g.getFileContentReadme(); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -263,6 +303,14 @@ func (g *Generator) CreateProject() error {
 	if !stat(g.Afs, servicePath) {
 		if err := g.Afs.MkdirAll(servicePath, 0751); err != nil {
 			return err
+		}
+	}
+
+	if g.Project.NewProject {
+		if err := g.goModInit(); err != nil {
+		}
+
+		if err := g.gitInit(); err != nil {
 		}
 	}
 
@@ -303,6 +351,17 @@ func (g *Generator) AddCommandProject() error {
 	}
 
 	return nil
+}
+
+func (g *Generator) goModInit() error {
+	if g.Project.PkgName == "" {
+		return goModInit()
+	}
+	return goModInitWithName(g.Project.PkgName)
+}
+
+func (g *Generator) gitInit() error {
+	return gitInit()
 }
 
 func (g *Generator) getFileContentMain() error {
@@ -447,6 +506,52 @@ func (g *Generator) getFileContentService() error {
 		Name:             "service",
 		TemplateFilePath: "tpl/service.tmpl",
 		FilePath:         fmt.Sprintf("%s/internal/service/service.go", g.Project.AbsolutePath),
+		Dirty:            true,
+	}
+
+	defer func() {
+		g.Content = append(g.Content, content)
+	}()
+
+	data, err := g.Templates.ReadFile(content.TemplateFilePath)
+	if err != nil {
+		return err
+	}
+
+	content.TemplateContent = string(data)
+	content.Data = g.Project
+	content.Dirty = false
+	return nil
+}
+
+func (g *Generator) getFileContentIgnore() error {
+	content := Content{
+		Name:             "gitignore",
+		TemplateFilePath: "tpl/gitignore.tmpl",
+		FilePath:         fmt.Sprintf("%s/.gitignore", g.Project.AbsolutePath),
+		Dirty:            true,
+	}
+
+	defer func() {
+		g.Content = append(g.Content, content)
+	}()
+
+	data, err := g.Templates.ReadFile(content.TemplateFilePath)
+	if err != nil {
+		return err
+	}
+
+	content.TemplateContent = string(data)
+	content.Data = g.Project
+	content.Dirty = false
+	return nil
+}
+
+func (g *Generator) getFileContentReadme() error {
+	content := Content{
+		Name:             "readme",
+		TemplateFilePath: "tpl/readme.tmpl",
+		FilePath:         fmt.Sprintf("%s/README.md", g.Project.AbsolutePath),
 		Dirty:            true,
 	}
 
