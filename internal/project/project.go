@@ -276,9 +276,9 @@ func (g *Generator) CreateProject() error {
 		return err
 	}
 
-	if err := g.gitInit(); err != nil {
-		return err
-	}
+	// if err := g.gitInit(); err != nil {
+	// 	return err
+	// }
 
 	if err := g.renderTemplate(); err != nil {
 		return err
