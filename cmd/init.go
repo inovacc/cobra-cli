@@ -19,6 +19,7 @@ import (
 	"github.com/inovacc/cobra-cli/internal/project"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
+	"os/exec"
 )
 
 func init() {
@@ -69,6 +70,11 @@ Cobra init must be run inside of a go module (please run "go mod init <MODNAME>"
 			cobra.CheckErr(project.GoGet("github.com/spf13/viper"))
 			cobra.CheckErr(project.GoGet("gopkg.in/yaml.v3"))
 			cobra.CheckErr(project.GoGet("go.uber.org/automaxprocs"))
+
+			cmd := exec.Command("go", "mod", "tidy")
+			cmd.Stdout = nil
+			cmd.Stderr = nil
+			cobra.CheckErr(cmd.Run())
 
 			fmt.Printf("Your Cobra application is ready at\n%s\n", projectGenerator.GetProjectPath())
 		},

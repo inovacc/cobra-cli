@@ -131,8 +131,8 @@ func goModInitWithName(modName string) error {
 		return nil
 	}
 	cmd := exec.Command("go", "mod", "init", modName)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = nil
+	cmd.Stderr = nil
 	return cmd.Run()
 }
 
@@ -144,8 +144,8 @@ func goModInit() error {
 
 	modName := path.Base(wd)
 	cmd := exec.Command("go", "mod", "init", modName)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = nil
+	cmd.Stderr = nil
 	return cmd.Run()
 }
 
@@ -279,9 +279,9 @@ func (g *Generator) PrepareModels() error {
 			return err
 		}
 
-		if err := g.getFileContentReadme(); err != nil {
-			return err
-		}
+		//if err := g.getFileContentReadme(); err != nil {
+		//	return err
+		//}
 	}
 
 	return nil
