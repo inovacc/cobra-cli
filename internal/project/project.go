@@ -114,41 +114,6 @@ func modInfoJSON(args ...string) []byte {
 	return out
 }
 
-func gitInit() error {
-	if err := exec.Command("git", "init").Run(); err != nil {
-		return err
-	}
-
-	cmd := exec.Command("git", "branch", "-m", "main")
-	cmd.Stdout = nil
-	cmd.Stderr = nil
-	return cmd.Run()
-}
-
-func goModInitWithName(modName string) error {
-	if _, err := os.Stat("go.mod"); err == nil {
-		fmt.Println("go.mod already exists, skipping `go mod init`.")
-		return nil
-	}
-	cmd := exec.Command("go", "mod", "init", modName)
-	cmd.Stdout = nil
-	cmd.Stderr = nil
-	return cmd.Run()
-}
-
-func goModInit() error {
-	wd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-
-	modName := path.Base(wd)
-	cmd := exec.Command("go", "mod", "init", modName)
-	cmd.Stdout = nil
-	cmd.Stderr = nil
-	return cmd.Run()
-}
-
 type Command struct {
 	CmdName          string
 	CmdParent        string
@@ -163,7 +128,6 @@ type Project struct {
 	AppName      string
 	CmdName      string
 	Legal        *License
-	NewProject   bool
 }
 
 func NewProject(args []string) (*Project, error) {
@@ -178,23 +142,12 @@ func NewProject(args []string) (*Project, error) {
 		}
 	}
 
-	var hasGit, hasMod bool
-
-	if _, err := os.Stat("go.mod"); err == nil {
-		hasMod = true
-	}
-
-	if _, err := os.Stat(".git"); err == nil {
-		hasGit = true
-	}
-
 	return &Project{
 		Args:         args,
 		AbsolutePath: wd,
 		PkgName:      getModImportPath(),
 		AppName:      path.Base(wd),
 		Legal:        &License{},
-		NewProject:   !hasMod && !hasGit,
 	}, nil
 }
 
@@ -274,14 +227,12 @@ func (g *Generator) PrepareModels() error {
 		return err
 	}
 
-	if g.Project.NewProject {
-		if err := g.getFileContentIgnore(); err != nil {
-			return err
-		}
+	if err := g.getFileContentIgnore(); err != nil {
+		return err
+	}
 
-		if err := g.getFileContentReadme(); err != nil {
-			return err
-		}
+	if err := g.getFileContentReadme(); err != nil {
+		return err
 	}
 
 	return nil
@@ -321,14 +272,12 @@ func (g *Generator) CreateProject() error {
 		}
 	}
 
-	if g.Project.NewProject {
-		if err := g.goModInit(); err != nil {
-			return err
-		}
+	if err := g.goModInit(); err != nil {
+		return err
+	}
 
-		if err := g.gitInit(); err != nil {
-			return err
-		}
+	if err := g.gitInit(); err != nil {
+		return err
 	}
 
 	if err := g.renderTemplate(); err != nil {
@@ -371,14 +320,37 @@ func (g *Generator) AddCommandProject() error {
 }
 
 func (g *Generator) goModInit() error {
-	if g.Project.PkgName == "" {
-		return goModInit()
+	if _, err := os.Stat("go.mod"); err != nil {
+		modName := g.Project.PkgName
+
+		if modName == "" {
+			wd, err := os.Getwd()
+			if err != nil {
+				return err
+			}
+			modName = path.Base(wd)
+		}
+
+		cmd := exec.Command("go", "mod", "init", modName)
+		cmd.Stdout = nil
+		cmd.Stderr = nil
+		return cmd.Run()
 	}
-	return goModInitWithName(g.Project.PkgName)
+	return nil
 }
 
 func (g *Generator) gitInit() error {
-	return gitInit()
+	if _, err := os.Stat(".git"); err != nil {
+		if err := exec.Command("git", "init").Run(); err != nil {
+			return err
+		}
+
+		cmd := exec.Command("git", "branch", "-m", "main")
+		cmd.Stdout = nil
+		cmd.Stderr = nil
+		return cmd.Run()
+	}
+	return nil
 }
 
 func (g *Generator) getFileContentMain() error {
