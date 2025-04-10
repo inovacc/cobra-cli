@@ -323,9 +323,11 @@ func (g *Generator) CreateProject() error {
 
 	if g.Project.NewProject {
 		if err := g.goModInit(); err != nil {
+			return err
 		}
 
 		if err := g.gitInit(); err != nil {
+			return err
 		}
 	}
 
