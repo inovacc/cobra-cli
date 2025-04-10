@@ -28,8 +28,8 @@ func TestGenerateRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := generator.SetLicense(); err != nil {
-		t.Fatal(err)
+	if err := generator.PrepareModels(); err != nil {
+		t.Fatalf("Error creating Project: %v", err)
 	}
 
 	if err := generator.CreateProject(); err != nil {

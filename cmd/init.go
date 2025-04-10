@@ -59,7 +59,7 @@ Cobra init must be run inside of a go module (please run "go mod init <MODNAME>"
 			projectGenerator, err := project.NewProjectGenerator(afs, newProject)
 			cobra.CheckErr(err)
 
-			cobra.CheckErr(projectGenerator.SetLicense())
+			cobra.CheckErr(projectGenerator.PrepareModels())
 			cobra.CheckErr(projectGenerator.CreateProject())
 
 			cobra.CheckErr(project.GoGet("github.com/spf13/cobra"))

@@ -147,6 +147,7 @@ func NewProject(args []string) (*Project, error) {
 		AbsolutePath: wd,
 		PkgName:      getModImportPath(),
 		AppName:      path.Base(wd),
+		Legal:        &License{},
 	}, nil
 }
 
@@ -174,24 +175,18 @@ type Generator struct {
 func NewProjectGenerator(fs afero.Fs, project *Project) (*Generator, error) {
 	project.CmdName = validateCmdName(project.Args)
 
+	license, ok := contentLicenses(templates)[viper.GetString("license")]
+	if ok {
+		project.Legal = license
+	}
+
 	return &Generator{
+		None:      project.Legal.Code == "none",
 		Afs:       fs,
 		Templates: templates,
-		Licenses:  contentLicenses(templates),
 		Project:   project,
 		Content:   []Content{},
 	}, nil
-}
-
-func (g *Generator) SetLicense() error {
-	license, ok := g.Licenses[viper.GetString("license")]
-	if !ok {
-		return errors.New("license file not found in templates")
-	}
-
-	g.Project.Legal = license
-	g.None = g.Project.Legal.Code == "none"
-	return nil
 }
 
 type Content struct {
@@ -209,6 +204,30 @@ func (g *Generator) GetProjectPath() string {
 
 func (g *Generator) CmdName() string {
 	return g.Project.CmdName
+}
+
+func (g *Generator) PrepareModels() error {
+	if err := g.getFileContentLicense(); err != nil {
+		return err
+	}
+
+	if err := g.getFileContentMain(); err != nil {
+		return err
+	}
+
+	if err := g.getFileContentRoot(); err != nil {
+		return err
+	}
+
+	if err := g.getFileContentConfig(); err != nil {
+		return err
+	}
+
+	if err := g.getFileContentService(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // CreateProject sets up the Project structure and files.
@@ -231,24 +250,18 @@ func (g *Generator) CreateProject() error {
 		}
 	}
 
-	if err := g.getFileContentLicense(); err != nil {
-		return err
+	configPath := filepath.Join(g.Project.AbsolutePath, "config")
+	if !stat(g.Afs, configPath) {
+		if err := g.Afs.MkdirAll(configPath, 0751); err != nil {
+			return err
+		}
 	}
 
-	if err := g.getFileContentMain(); err != nil {
-		return err
-	}
-
-	if err := g.getFileContentRoot(); err != nil {
-		return err
-	}
-
-	if err := g.getFileContentConfig(); err != nil {
-		return err
-	}
-
-	if err := g.getFileContentService(); err != nil {
-		return err
+	servicePath := filepath.Join(g.Project.AbsolutePath, "internal", "service")
+	if !stat(g.Afs, servicePath) {
+		if err := g.Afs.MkdirAll(servicePath, 0751); err != nil {
+			return err
+		}
 	}
 
 	if err := g.renderTemplate(); err != nil {
