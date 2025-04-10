@@ -115,9 +115,13 @@ func modInfoJSON(args ...string) []byte {
 }
 
 func gitInit() error {
-	cmd := exec.Command("git", "init")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	if err := exec.Command("git", "init").Run(); err != nil {
+		return err
+	}
+
+	cmd := exec.Command("git", "branch", "-m", "main")
+	cmd.Stdout = nil
+	cmd.Stderr = nil
 	return cmd.Run()
 }
 
@@ -174,12 +178,23 @@ func NewProject(args []string) (*Project, error) {
 		}
 	}
 
+	var hasGit, hasMod bool
+
+	if _, err := os.Stat("go.mod"); err == nil {
+		hasMod = true
+	}
+
+	if _, err := os.Stat(".git"); err == nil {
+		hasGit = true
+	}
+
 	return &Project{
 		Args:         args,
 		AbsolutePath: wd,
 		PkgName:      getModImportPath(),
 		AppName:      path.Base(wd),
 		Legal:        &License{},
+		NewProject:   !hasMod && !hasGit,
 	}, nil
 }
 
