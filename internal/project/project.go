@@ -279,9 +279,9 @@ func (g *Generator) PrepareModels() error {
 			return err
 		}
 
-		//if err := g.getFileContentReadme(); err != nil {
-		//	return err
-		//}
+		if err := g.getFileContentReadme(); err != nil {
+			return err
+		}
 	}
 
 	return nil
